@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from database import Base
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -22,8 +22,9 @@ class Ride(Base):
  
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     driver_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
-    origin: Mapped[str] = mapped_column(String(255))
-    destination: Mapped[str] = mapped_column(String(255))
+    # JSON type for GeoJSON data.
+    # JSON works with both SQLite and PSQL, but swapping to JSONB would be faster for psql.
+    origin_point: Mapped[dict] = mapped_column(JSON)
     departure_time: Mapped[datetime] = mapped_column(DateTime)
     seats: Mapped[int] = mapped_column(default=1)
 
