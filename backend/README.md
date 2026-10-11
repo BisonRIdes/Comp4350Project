@@ -1,11 +1,23 @@
 # Setting Up the FastAPI Dev Environment
 
-> For Linux (bash or any similar shell, e.g. zsh).
+> For Linux and macOS (bash or any similar shell, e.g. zsh).
 
 ## Prerequisites
-`Python3` with `venv` and `pip`. On Debian/Ubuntu, install it with:
+`Python 3` with `venv` and `pip`.
+
+**Debian/Ubuntu**
 ```bash
 sudo apt install python3 python3-venv python3-pip
+```
+
+**macOS** using Homebrew
+```bash
+brew install python@3.12
+```
+
+FastAPI requires Python 3.10 or newer. Because 3.10 is nearing end-of-life, use Python 3.11 or newer for development. Check your version with:
+```bash
+python3 --version
 ```
 
 ## Setup
