@@ -17,6 +17,9 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v7
+        with:
+          # SonarCloud needs full history to tell new code from old.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -28,7 +31,11 @@ jobs:
       - name: Format
         run: ruff format --check .
       - name: Test
-        run: pytest --cov=main --cov=routers --cov-report=term-missing
+        run: pytest --cov=main --cov=routers --cov-report=term-missing --cov-report=xml
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   security:
     runs-on: ubuntu-latest
