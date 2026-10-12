@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 
-from database import Base
 from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
+
+from database import Base
 
 
 def new_id() -> str:
