@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env.test", override=True)
 
 import pytest_asyncio
+
 from database import Base, engine
 
 

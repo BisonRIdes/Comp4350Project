@@ -1,8 +1,8 @@
 from contextlib import asynccontextmanager
 
-from database import Base, engine
 from fastapi import FastAPI
 
+from database import Base, engine
 from routers import auth, ride_requests, rides, updates, users
 
 app = FastAPI(title="BisonRides")
