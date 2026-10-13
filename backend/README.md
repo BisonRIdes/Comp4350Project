@@ -47,3 +47,15 @@ To also get a coverage report:
 pytest --cov=main --cov=routers --cov-report=term-missing --cov-report=html
 ```
 This prints a summary in the terminal and writes a detailed HTML report. Open `htmlcov/index.html` in a browser to view it.
+
+## Run with Docker
+This is the same image that Render deploys. Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running.
+
+From the `backend` folder:
+```bash
+docker build -t bisonrides-api .
+docker run --rm -p 8000:8000 bisonrides-api
+```
+The API is available at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/test`.
+
+The container listens on the port in the `PORT` environment variable (default `8000`). Render sets `PORT` automatically. No other environment variables are required yet.
