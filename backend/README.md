@@ -44,9 +44,9 @@ pytest
 
 To also get a coverage report:
 ```bash
-pytest --cov=main --cov=routers --cov-report=term-missing --cov-report=html
+pytest --cov --cov-report=term-missing --cov-report=html
 ```
-This prints a summary in the terminal and writes a detailed HTML report. Open `htmlcov/index.html` in a browser to view it.
+This measures all backend code except `tests/` (configured in `.coveragerc`), prints a summary in the terminal and writes a detailed HTML report. Open `htmlcov/index.html` in a browser to view it.
 
 ## Run with Docker
 This is the same image that Render deploys. Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running.
