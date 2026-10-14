@@ -1,8 +1,19 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from database import Base, engine
 from routers import auth, ride_requests, rides, updates, users
 
 app = FastAPI(title="BisonRides")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
 
 
 @app.get("/test")

@@ -59,3 +59,6 @@ docker run --rm -p 8000:8000 bisonrides-api
 The API is available at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/test`.
 
 The container listens on the port in the `PORT` environment variable (default `8000`). Render sets `PORT` automatically. No other environment variables are required yet.
+
+## Setting up Environment Variables
+For the database setup, either provide a connection string directly through the `DATABASE_URL` environment variable, or set up environment variables for `user`, `password`, `host`, `port`, and `dbname`. `DATABASE_URL` will let you insert either a SQLite or PostgreSQL connection string, while the latter setup is fixed to PostgreSQL with the `asyncpg` drivers.
