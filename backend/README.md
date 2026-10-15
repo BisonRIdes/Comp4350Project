@@ -62,3 +62,5 @@ The container listens on the port in the `PORT` environment variable (default `8
 
 ## Setting up Environment Variables
 For the database setup, either provide a connection string directly through the `DATABASE_URL` environment variable, or set up environment variables for `user`, `password`, `host`, `port`, and `dbname`. `DATABASE_URL` will let you insert either a SQLite or PostgreSQL connection string, while the latter setup is fixed to PostgreSQL with the `asyncpg` drivers.
+
+Set the `API_KEY` header to assign what key all requests to the backend should include.
