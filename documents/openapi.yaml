@@ -1,0 +1,443 @@
+openapi: 3.1.0
+info:
+  title: Ride Share API
+  version: 0.1.0
+  description: |
+    Contract for the ride-share backend. Every request must include the `x-api`
+    header, otherwise the server responds with 401.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+# Applies to every operation, including login and account creation.
+security:
+  - ApiKeyHeader: []
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Rides
+  - name: Requests
+  - name: Updates
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Login successful, returns the account details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /users:
+    post:
+      tags: [Users]
+      operationId: createUser
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: An account with this username or email already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /rides:
+    get:
+      tags: [Rides]
+      operationId: listRides
+      summary: List all rides
+      responses:
+        "200":
+          description: List of rides
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Rides]
+      operationId: createRide
+      summary: Driver posts a ride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRideRequest" }
+      responses:
+        "201":
+          description: Ride created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The user is not a driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /rides/{ride_id}:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    patch:
+      tags: [Rides]
+      operationId: updateRide
+      summary: Update a ride (partial update)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRideRequest" }
+      responses:
+        "200":
+          description: Updated ride
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Rides]
+      operationId: deleteRide
+      summary: Delete a ride
+      responses:
+        "204":
+          description: Ride deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /drivers/{driver_id}/requests:
+    get:
+      tags: [Requests]
+      operationId: listDriverRideRequests
+      summary: List all ride requests made to a driver
+      description: Requests across all of this driver's rides.
+      parameters:
+        - name: driver_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          description: Only return requests with this status
+          schema: { $ref: "#/components/schemas/RequestStatus" }
+      responses:
+        "200":
+          description: The driver's incoming requests, across all statuses unless filtered
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RideRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [Requests]
+      operationId: createRideRequest
+      summary: Request a ride from a driver
+      parameters:
+        - name: driver_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRideRequestBody" }
+      responses:
+        "201":
+          description: Request created with status `pending`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RideRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Duplicate request, or the ride has no seats left
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /requests:
+    get:
+      tags: [Requests]
+      operationId: listRideRequests
+      summary: List all ride requests made by a rider
+      parameters:
+        - name: rider_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          description: Only return requests with this status
+          schema: { $ref: "#/components/schemas/RequestStatus" }
+      responses:
+        "200":
+          description: The rider's requests, across all statuses unless filtered
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RideRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /requests/{request_id}:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    delete:
+      tags: [Requests]
+      operationId: deleteRideRequest
+      summary: Delete (cancel) a ride request
+      responses:
+        "204":
+          description: Request deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /requests/{request_id}/accept:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      tags: [Requests]
+      operationId: acceptRideRequest
+      summary: Driver accepts a ride request
+      description: Sets status to `accepted` and creates a ride registration for the rider.
+      responses:
+        "200":
+          description: Request accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RideRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Request is not pending, or the ride has no seats left
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /requests/{request_id}/decline:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      tags: [Requests]
+      operationId: declineRideRequest
+      summary: Driver declines a ride request
+      responses:
+        "200":
+          description: Request declined
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RideRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Request is not pending
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /updates:
+    get:
+      tags: [Updates]
+      operationId: getUpdates
+      summary: Get everything needed to refresh the page for a user
+      description: |
+        Returns pending requests waiting on this user (as a driver) and requests
+        this user made (as a rider) that have since been accepted or declined.
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Updates for the user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Updates" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api
+      description: Required on every request. Missing or invalid returns 401.
+
+  parameters:
+    RideId:
+      name: ride_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RequestId:
+      name: request_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid `x-api` header, or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Request body or parameters failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        code: { type: string, description: Machine-readable error code }
+
+    User:
+      type: object
+      description: Public account details. Never includes the password hash.
+      required: [id, username, email, is_driver]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        email: { type: string, format: email }
+        is_driver: { type: boolean }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password:
+          type: string
+          format: password
+          description: Plaintext password, sent over HTTPS. The server hashes and compares it.
+
+    CreateUserRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 50, description: Must be unique }
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, format: password, minLength: 8 }
+        is_driver: { type: boolean, default: false }
+
+    GeoJSONPoint:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, enum: [Point] }
+        coordinates:
+          type: array
+          description: "[longitude, latitude]"
+          minItems: 2
+          maxItems: 2
+          items: { type: number }
+      examples:
+        - { type: Point, coordinates: [-122.4194, 37.7749] }
+
+    Ride:
+      type: object
+      required: [id, driver_id, origin_point, departure_time, seats]
+      properties:
+        id: { type: string, format: uuid }
+        driver_id: { type: string, format: uuid }
+        origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+        departure_time: { type: string, format: date-time }
+        seats: { type: integer, minimum: 0 }
+
+    CreateRideRequest:
+      type: object
+      required: [driver_id, origin_point, departure_time]
+      properties:
+        driver_id: { type: string, format: uuid }
+        origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+        departure_time: { type: string, format: date-time }
+        seats: { type: integer, minimum: 1, default: 1 }
+
+    UpdateRideRequest:
+      type: object
+      minProperties: 1
+      properties:
+        origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+        departure_time: { type: string, format: date-time }
+        seats: { type: integer, minimum: 0 }
+
+    RequestStatus:
+      type: string
+      enum: [pending, accepted, declined]
+
+    RideRequest:
+      type: object
+      required: [id, ride_id, rider_id, status]
+      properties:
+        id: { type: string, format: uuid }
+        ride_id: { type: string, format: uuid }
+        rider_id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/RequestStatus" }
+
+    CreateRideRequestBody:
+      type: object
+      required: [ride_id, rider_id]
+      properties:
+        ride_id: { type: string, format: uuid }
+        rider_id: { type: string, format: uuid }
+
+    Updates:
+      type: object
+      required: [pending_requests, request_updates]
+      properties:
+        pending_requests:
+          type: array
+          description: Requests on this user's rides that are still waiting for a response (driver view)
+          items: { $ref: "#/components/schemas/RideRequest" }
+        request_updates:
+          type: array
+          description: This user's requests that have been accepted or declined (rider view)
+          items: { $ref: "#/components/schemas/RideRequest" }
