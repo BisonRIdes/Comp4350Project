@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 @app.get("/test")
-async def health_check(key: str = Depends(header_scheme)):
+async def health_check():
     return {"message": "API is working!"}
 
 
