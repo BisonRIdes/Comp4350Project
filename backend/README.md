@@ -54,11 +54,16 @@ This is the same image that Render deploys. Requires [Docker Desktop](https://ww
 From the `backend` folder:
 ```bash
 docker build -t bisonrides-api .
-docker run --rm -p 8000:8000 bisonrides-api
+docker run --rm -p 8000:8000 --env-file .env bisonrides-api
 ```
 The API is available at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/test`.
 
-The container listens on the port in the `PORT` environment variable (default `8000`). Render sets `PORT` automatically. No other environment variables are required yet.
+The container listens on the port in the `PORT` environment variable (default `8000`). Render sets `PORT` automatically. The app also needs the database variables below, which `--env-file .env` passes in (`.env` is not copied into the image).
+
+## Deployment
+The backend runs on Render at https://bisonrides-api.onrender.com. Every push to `dev` deploys automatically once the `backend` and `security` CI checks pass (the `deploy-backend` job in `.github/workflows/ci.yml`). Deploy logs are in the Render dashboard.
+
+Render has `DATABASE_URL` set to the Supabase **Session pooler** connection string, in the form `postgresql+asyncpg://postgres.<project-ref>:<password>@<pooler-host>:5432/postgres`. The direct `db.<project-ref>.supabase.co` host only works over IPv6, which Render doesn't support. Write any `@` in the password as `%40`.
 
 ## Setting up Environment Variables
 For the database setup, either provide a connection string directly through the `DATABASE_URL` environment variable, or set up environment variables for `user`, `password`, `host`, `port`, and `dbname`. `DATABASE_URL` will let you insert either a SQLite or PostgreSQL connection string, while the latter setup is fixed to PostgreSQL with the `asyncpg` drivers.

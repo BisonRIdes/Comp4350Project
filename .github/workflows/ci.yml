@@ -50,3 +50,17 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+
+  deploy-backend:
+    needs: [backend, security]
+    # Only pushes to dev deploy; PRs just run the checks. Render's own auto-deploy is off.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment:
+      name: render
+      url: https://bisonrides-api.onrender.com/test
+    steps:
+      # Starts a Render deploy of this exact commit. Build/deploy progress is in the Render dashboard.
+      - run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK&ref=$GITHUB_SHA"
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
