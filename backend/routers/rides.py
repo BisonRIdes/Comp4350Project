@@ -13,3 +13,15 @@ async def list_rides():
 @router.post("", status_code=201)
 async def create_ride():
     pass
+
+#driver can edit a ride 
+@router.put("", status_code=201)
+async def edit_ride():
+    pass  
+
+
+#driver can delete a ride 
+
+@router.delete("")
+async def delete_ride():
+    pass 
