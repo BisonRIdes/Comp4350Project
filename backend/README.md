@@ -65,5 +65,7 @@ The backend runs on Render at https://bisonrides-api.onrender.com. Every push to
 
 Render has `DATABASE_URL` set to the Supabase **Session pooler** connection string, in the form `postgresql+asyncpg://postgres.<project-ref>:<password>@<pooler-host>:5432/postgres`. The direct `db.<project-ref>.supabase.co` host only works over IPv6, which Render doesn't support. Write any `@` in the password as `%40`.
 
+Render also has `API_KEY` set to its own random key, not the placeholder from `.env.example`, which is public. Every endpoint except `/docs` needs that key in the `x-key` header, so Render's health check path is `/docs`. To try endpoints on the live API, open `/docs`, click **Authorize** and paste the key.
+
 ## Setting up Environment Variables
 For the database setup, either provide a connection string directly through the `DATABASE_URL` environment variable, or set up environment variables for `user`, `password`, `host`, `port`, and `dbname`. `DATABASE_URL` will let you insert either a SQLite or PostgreSQL connection string, while the latter setup is fixed to PostgreSQL with the `asyncpg` drivers.

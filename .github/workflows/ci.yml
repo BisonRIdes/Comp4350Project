@@ -58,7 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: render
-      url: https://bisonrides-api.onrender.com/test
+      # /docs is the one page that doesn't need the x-key header.
+      url: https://bisonrides-api.onrender.com/docs
     steps:
       # Starts a Render deploy of this exact commit. Build/deploy progress is in the Render dashboard.
       - run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK&ref=$GITHUB_SHA"
