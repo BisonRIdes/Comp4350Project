@@ -3,6 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -49,9 +50,25 @@ async def create_ride():
 
 
 # driver can edit a ride (partial update)
-@router.patch("/{ride_id}")
-async def edit_ride(ride_id: str):
-    pass
+@router.patch("/{ride_id}", response_model=RideOut)
+async def edit_ride(
+    ride_id: str, body: UpdateRideBody, db: AsyncSession = Depends(get_db)
+):
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # only the fields the client actually sent
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=422, detail="No fields to update")
+
+    for field, value in changes.items():
+        setattr(ride, field, value)
+
+    await db.commit()
+    await db.refresh(ride)
+    return ride
 
 
 # driver can delete a ride
