@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from fastapi.testclient import TestClient
@@ -7,7 +8,7 @@ from database import SessionLocal
 from main import app
 from models import Ride, RideRegistration, RideRequest, User
 
-client = TestClient(app)
+client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
 POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
 TIME = "2026-11-01T14:30:00"
