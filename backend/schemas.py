@@ -10,11 +10,11 @@ EMAIL_REGEX: Final = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
 
 - `^`          : Matches the beginning of the string.
-- `[^@\s]+`    : Matches one or more characters excluding '@' and whitespace (username).
+- `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (username).
 - `@`          : Matches the literal '@' symbol separating the username and domain.
-- `[^@\s]+`    : Matches one or more characters excluding '@' and whitespace (domain).
-- `\.`         : Matches the literal '.' separating the domain and root domain.
-- `[^@\s]+`    : Matches one or more characters excluding '@' and whitespace (root domain).
+- `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (domain).
+- `\\.`         : Matches the literal '.' separating the domain and root domain.
+- `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (root domain).
 - `$`          : Matches the end of the string.
 
 Example valid matches:
