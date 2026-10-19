@@ -1,11 +1,14 @@
 import uuid
 from datetime import datetime
 
+from pydantic import BaseModel, ConfigDict, Field
+
+from typing import Final
+
 from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-
 
 def new_id() -> str:
     return str(uuid.uuid4())
@@ -19,6 +22,22 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     is_driver: Mapped[bool] = mapped_column(default=False)
+
+class CreateUserRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    # basic format check; avoids needing the email-validator dependency
+    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8)
+    is_driver: bool = False
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    username: str
+    email: str
+    is_driver: bool
 
 
 class Ride(Base):

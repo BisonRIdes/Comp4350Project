@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,23 +9,6 @@ from models import User
 from util.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-class CreateUserRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
-    # basic format check; avoids needing the email-validator dependency
-    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    password: str = Field(min_length=8)
-    is_driver: bool = False
-
-
-class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    username: str
-    email: str
-    is_driver: bool
 
 
 # create an account and return a user on success with 201 code
