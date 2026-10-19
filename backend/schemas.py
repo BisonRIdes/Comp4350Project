@@ -5,6 +5,8 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from util.constants import USERNAME_LENGTH
+
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
 
@@ -69,7 +71,7 @@ class CreateUserRequest(BaseModel):
     ## Important: Pydantic Regex's engine does not support look-around, so enforcing model-config to use python-re is important
     model_config = ConfigDict(regex_engine="python-re")
 
-    username: str = Field(min_length=3, max_length=36)
+    username: str = Field(min_length=3, max_length=USERNAME_LENGTH)
     # basic format check; avoids needing the email-validator dependency
     email: str = Field(max_length=255, pattern=EMAIL_REGEX)
     password: str = Field(min_length=8)
