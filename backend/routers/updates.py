@@ -13,7 +13,7 @@ router = APIRouter(prefix="/updates", tags=["updates"])
 
 # get any info needed to display on the page for a given user
 @router.get("", response_model=UpdatesOut)
-async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
+async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> UpdatesOut:
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -33,7 +33,7 @@ async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]
         )
     )
 
-    return {
-        "pending_requests": pending.scalars().all(),
-        "request_updates": answered.scalars().all(),
-    }
+    return UpdatesOut(
+        pending_requests=pending.scalars().all(),
+        request_updates=answered.scalars().all(),
+    )
