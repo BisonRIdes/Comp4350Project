@@ -5,14 +5,16 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-EMAIL_REGEX: Final = r"[^@\s]+@[^@\s]+\.[^@\s]+$"
+EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
 
+- `(?<!\\S)`    : Matches the beginning of the e-mail (at the start of string or after whitespace).
 - `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (username).
-- `@`          : Matches the literal '@' symbol separating the username and domain.
+- `@`           : Matches the literal '@' symbol separating the username and domain.
 - `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (domain).
 - `\\.`         : Matches the literal '.' separating the domain and root domain.
 - `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (root domain).
+- `(?!\\S)`     : Matches the end of the e-mail (at the end of string or before whitespace)
 
 Example valid matches:
     `user@example.com`
@@ -63,6 +65,9 @@ class UpdateRideBody(BaseModel):
 class CreateUserRequest(BaseModel):
     """Request body for creating a user account. Since account created cannot be driver by default,
     `is_driver` is defaulted to `False` on creation."""
+
+    ## Important: Pydantic Regex's engine does not support look-around, so enforcing model-config to use python-re is important
+    model_config = ConfigDict(regex_engine="python-re") 
 
     username: str = Field(min_length=3, max_length=36)
     # basic format check; avoids needing the email-validator dependency
