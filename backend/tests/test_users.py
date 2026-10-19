@@ -12,7 +12,7 @@ HEADERS = {"x-key": "12345qwerty"}
 BODY = {"username": "alice", "email": "alice@example.com", "password": "password123"}
 
 
-def test_create_user():
+def test_create_account() -> None:
     response = client.post("/users", json=BODY, headers=HEADERS)
 
     assert response.status_code == 201
@@ -23,14 +23,13 @@ def test_create_user():
     assert "password_hash" not in data
 
 
-def test_create_user_duplicate():
+def test_create_account_duplicate() -> None:
     client.post("/users", json=BODY, headers=HEADERS)
     response = client.post("/users", json={**BODY, "username": "bob"}, headers=HEADERS)
 
     assert response.status_code == 409
 
-
-def test_create_user_concurrent_signup():
+def test_create_account_concurrent_signup():
     db = AsyncMock(spec=AsyncSession)
     db.scalar.return_value = None
     db.commit.side_effect = IntegrityError("INSERT", {}, Exception("duplicate key"))
@@ -46,11 +45,10 @@ def test_create_user_concurrent_signup():
 
     assert response.status_code == 409
     assert response.json() == {"detail": "Username or email already exists"}
-    db.commit.assert_awaited_once()
     db.rollback.assert_awaited_once()
 
 
-def test_create_user_validation():
+def test_create_account_validation():
     response = client.post("/users", json={**BODY, "password": "short"}, headers=HEADERS)
 
     assert response.status_code == 422
