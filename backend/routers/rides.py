@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -42,14 +43,14 @@ class UpdateRideBody(BaseModel):
 
 # return a list of all rides for populating the frontend
 @router.get("", response_model=list[RideOut])
-async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]):
+async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[Ride]:
     result = await db.execute(select(Ride).order_by(Ride.departure_time))
     return result.scalars().all()
 
 
 # driver can post a ride
 @router.post("", status_code=201, response_model=RideOut)
-async def create_ride(body: CreateRideBody, db: Annotated[AsyncSession, Depends(get_db)]):
+async def create_ride(body: CreateRideBody, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
     driver = await db.get(User, body.driver_id)
     if driver is None or not driver.is_driver:
         raise HTTPException(status_code=403, detail="User is not a driver")
@@ -70,7 +71,7 @@ async def create_ride(body: CreateRideBody, db: Annotated[AsyncSession, Depends(
 @router.patch("/{ride_id}", response_model=RideOut)
 async def edit_ride(
     ride_id: str, body: UpdateRideBody, db: Annotated[AsyncSession, Depends(get_db)]
-):
+) -> Ride:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -90,7 +91,7 @@ async def edit_ride(
 
 # driver can delete a ride
 @router.delete("/{ride_id}", status_code=204)
-async def delete_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
+async def delete_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> None:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
