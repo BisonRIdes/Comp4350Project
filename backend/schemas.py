@@ -40,3 +40,19 @@ class UpdateRideBody(BaseModel):
     origin_point: GeoJSONPoint | None = None
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
+
+class CreateUserRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    # basic format check; avoids needing the email-validator dependency
+    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8)
+    is_driver: bool = False
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    username: str
+    email: str
+    is_driver: bool

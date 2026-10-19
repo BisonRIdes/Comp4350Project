@@ -25,22 +25,6 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     is_driver: Mapped[bool] = mapped_column(default=False)
 
-class CreateUserRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
-    # basic format check; avoids needing the email-validator dependency
-    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    password: str = Field(min_length=8)
-    is_driver: bool = False
-
-
-class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    username: str
-    email: str
-    is_driver: bool
-
 
 class Ride(Base):
     __tablename__ = "rides"
