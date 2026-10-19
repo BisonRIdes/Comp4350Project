@@ -1,0 +1,42 @@
+"""Request and response models shared by the API routers."""
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class GeoJSONPoint(BaseModel):
+    """A GeoJSON point, stored as [longitude, latitude]."""
+
+    type: Literal["Point"]
+    coordinates: list[float] = Field(min_length=2, max_length=2)  # [lng, lat]
+
+
+class RideOut(BaseModel):
+    """A ride as returned by the API."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    driver_id: str
+    origin_point: GeoJSONPoint
+    departure_time: datetime
+    seats: int
+
+
+class CreateRideBody(BaseModel):
+    """Request body for posting a ride."""
+
+    driver_id: str  # TODO: take the driver from the logged-in user instead of the request body
+    origin_point: GeoJSONPoint
+    departure_time: datetime
+    seats: int = Field(default=1, ge=1)
+
+
+class UpdateRideBody(BaseModel):
+    """Request body for editing a ride. Only the fields sent are changed."""
+
+    origin_point: GeoJSONPoint | None = None
+    departure_time: datetime | None = None
+    seats: int | None = Field(default=None, ge=0)
