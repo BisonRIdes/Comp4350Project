@@ -1,8 +1,5 @@
 import uuid
 from datetime import datetime
-
-from pydantic import BaseModel, ConfigDict, Field
-
 from typing import Final
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String

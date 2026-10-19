@@ -1,12 +1,11 @@
 import os
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
 from main import app
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
@@ -30,23 +29,23 @@ def test_create_account_duplicate() -> None:
 
     assert response.status_code == 409
 
-def test_create_account_concurrent_signup():
+def test_create_account_concurrent_signup(monkeypatch):
     db = AsyncMock(spec=AsyncSession)
     db.scalar.return_value = None
     db.commit.side_effect = IntegrityError("INSERT", {}, Exception("duplicate key"))
 
-    async def override_get_db():
-        yield db
+    session_context = MagicMock()
+    session_context.__aenter__ = AsyncMock(return_value=db)
+    session_context.__aexit__ = AsyncMock(return_value=None)
+    session_factory = MagicMock(return_value=session_context)
+    monkeypatch.setattr("routers.users.SessionLocal", session_factory)
 
-    app.dependency_overrides[get_db] = override_get_db
-    try:
-        response = client.post("/users", json=BODY,)
-    finally:
-        app.dependency_overrides.pop(get_db, None)
+    response = client.post("/users", json=BODY)
 
     assert response.status_code == 409
     assert response.json() == {"detail": "Username or email already exists"}
     db.rollback.assert_awaited_once()
+    session_factory.assert_called_once_with()
 
 
 def test_create_account_validation():
