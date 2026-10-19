@@ -1,7 +1,6 @@
 """Request and response models shared by the API routers."""
 
 from datetime import datetime
-
 from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
