@@ -23,7 +23,7 @@ async def create_account(body: CreateUserRequest) -> User:
         user = User(
             username=body.username,
             email=body.email,
-            password_hash=hash_password(body.password),
+            password_hash=await hash_password(body.password),
             is_driver=body.is_driver,
         )
         db.add(user)
