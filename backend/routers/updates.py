@@ -29,6 +29,7 @@ async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]
     # rider view: this user's own requests that got an answer
     answered = await db.execute(
         select(RideRequest)
+        .join(Ride, Ride.id == RideRequest.ride_id)
         .where(
             RideRequest.rider_id == user_id,
             RideRequest.status.in_(["accepted", "declined"]),
