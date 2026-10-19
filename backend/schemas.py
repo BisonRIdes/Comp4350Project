@@ -66,7 +66,7 @@ class CreateUserRequest(BaseModel):
     """Request body for creating a user account. Since account created cannot be driver by default,
     `is_driver` is defaulted to `False` on creation."""
 
-    username: str = Field(min_length=3, max_length=50)
+    username: str = Field(min_length=3, max_length=36)
     # basic format check; avoids needing the email-validator dependency
     email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     password: str = Field(min_length=8)
