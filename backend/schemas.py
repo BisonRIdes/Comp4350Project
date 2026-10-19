@@ -1,9 +1,8 @@
 """Request and response models shared by the API routers."""
 
 from datetime import datetime
-from typing import Final, Literal
-
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Final, Literal
 
 
 EMAIL_REGEX: Final = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
