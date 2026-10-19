@@ -40,3 +40,20 @@ class UpdateRideBody(BaseModel):
     origin_point: GeoJSONPoint | None = None
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
+
+class RideRequestOut(BaseModel):
+    """A ride request as returned by the API."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    ride_id: str
+    rider_id: str
+    status: Literal["pending", "accepted", "declined"]
+
+
+class UpdatesOut(BaseModel):
+    """Everything the page needs to refresh for one user."""
+
+    pending_requests: list[RideRequestOut]
+    request_updates: list[RideRequestOut]
