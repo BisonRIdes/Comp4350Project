@@ -37,4 +37,3 @@ async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]
         "pending_requests": pending.scalars().all(),
         "request_updates": answered.scalars().all(),
     }
-    

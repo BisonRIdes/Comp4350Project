@@ -41,6 +41,7 @@ class UpdateRideBody(BaseModel):
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
 
+
 class RideRequestOut(BaseModel):
     """A ride request as returned by the API."""
 
