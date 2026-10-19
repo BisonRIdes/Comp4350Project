@@ -50,7 +50,7 @@ class RideRequestOut(BaseModel):
     id: str
     ride_id: str
     rider_id: str
-    status: str
+    status: Literal["pending", "accepted", "declined"]
 
 
 class RideRegistrationOut(BaseModel):
@@ -60,3 +60,10 @@ class RideRegistrationOut(BaseModel):
 
     ride_id: str
     rider_id: str
+
+
+class UpdatesOut(BaseModel):
+    """Everything the page needs to refresh for one user."""
+
+    pending_requests: list[RideRequestOut]
+    request_updates: list[RideRequestOut]
