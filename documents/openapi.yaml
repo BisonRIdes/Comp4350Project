@@ -132,6 +132,11 @@ paths:
           description: Ride deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The ride has accepted riders and cannot be deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /drivers/{driver_id}/requests:
     get:
