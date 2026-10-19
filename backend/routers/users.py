@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
