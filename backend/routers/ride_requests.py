@@ -10,6 +10,9 @@ from models import Ride, RideRegistration, RideRequest, User
 
 router = APIRouter(tags=["ride requests"])
 
+auth_driver_id = "0"  # !!TODO: get this from authenticated user
+auth_rider_id = "0"  # !!TODO: get this from authenticated user
+
 
 class RideRequestOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -27,13 +30,40 @@ class RideRegistrationOut(BaseModel):
     rider_id: str
 
 
+# helper method to reduce duplicate code
+async def get_ride_request(
+    request_id: str, db: Annotated[AsyncSession, Depends(get_db)]
+) -> RideRequest:
+    ride_request = await db.get(RideRequest, request_id)
+    if ride_request is None:
+        raise HTTPException(status_code=404, detail="Ride request doesn't exist")
+    elif ride_request.status != "pending":
+        raise HTTPException(status_code=409, detail="This request is no longer pending")
+    return ride_request
+
+
+# helper method to reduce duplicate code
+async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride doesn't exist")
+    return ride
+
+
+# helper method to reduce duplicate code
+async def check_driver(driver_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    driver = await db.get(User, driver_id)
+    if driver is None or not driver.is_driver:
+        raise HTTPException(status_code=400, detail="Ride does not have valid driver")
+    elif driver.id != auth_driver_id:
+        raise HTTPException(status_code=403, detail="User is not authorized to accept this request")
+
+
 # make a request to join a ride
 @router.post("/rides/{ride_id}/requests", status_code=201, response_model=RideRequestOut)
 async def create_ride_request(
     ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> RideRequest:
-    auth_rider_id = "0"  # !!TODO: get this from authenticated user
-
     # check if ride exists
     ride = await db.get(Ride, ride_id)
     if ride is None:
@@ -72,26 +102,9 @@ async def create_ride_request(
 async def accept_ride_request(
     request_id: str, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> RideRegistration:
-    auth_driver_id = "0"  # !!TODO: get this from authenticated user
-
-    # get ride request
-    ride_request = await db.get(RideRequest, request_id)
-    if ride_request is None:
-        raise HTTPException(status_code=404, detail="Ride request doesn't exist")
-    elif ride_request.status != "pending":
-        raise HTTPException(status_code=409, detail="This request is no longer pending")
-
-    # get ride
-    ride = await db.get(Ride, ride_request.ride_id)
-    if ride is None:
-        raise HTTPException(status_code=404, detail="Ride doesn't exist")
-
-    # lookup driver that is tied to request id
-    driver = await db.get(User, ride.driver_id)
-    if driver is None or not driver.is_driver:
-        raise HTTPException(status_code=400, detail="Ride does not have valid driver")
-    elif driver.id != auth_driver_id:
-        raise HTTPException(status_code=403, detail="User is not authorized to accept this request")
+    ride_request = await get_ride_request(request_id, db)
+    ride = await get_ride(ride_request.ride_id, db)
+    await check_driver(ride.driver_id, db)
 
     # check if there is any seat availability
     registrations = await db.execute(
@@ -119,28 +132,9 @@ async def accept_ride_request(
 async def decline_ride_request(
     request_id: str, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> None:
-    auth_driver_id = "0"  # !!TODO: get this from authenticated user
-
-    # get ride request
-    ride_request = await db.get(RideRequest, request_id)
-    if ride_request is None:
-        raise HTTPException(status_code=404, detail="Ride request doesn't exist")
-    elif ride_request.status != "pending":
-        raise HTTPException(status_code=409, detail="This request is no longer pending")
-
-    # get ride
-    ride = await db.get(Ride, ride_request.ride_id)
-    if ride is None:
-        raise HTTPException(status_code=404, detail="Ride doesn't exist")
-
-    # lookup driver that is tied to request id
-    driver = await db.get(User, ride.driver_id)
-    if driver is None or not driver.is_driver:
-        raise HTTPException(status_code=400, detail="Ride does not have valid driver")
-    elif driver.id != auth_driver_id:
-        raise HTTPException(
-            status_code=403, detail="User is not authorized to decline this request"
-        )
+    ride_request = await get_ride_request(request_id, db)
+    ride = await get_ride(ride_request.ride_id, db)
+    await check_driver(ride.driver_id, db)
 
     # change status of ride_request entry
     ride_request.status = "declined"
@@ -153,8 +147,6 @@ async def decline_ride_request(
 async def cancel_ride_request(
     request_id: str, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> None:
-    auth_rider_id = "0"  # !!TODO: get this from authenticated user
-
     # get ride request
     ride_request = await db.get(RideRequest, request_id)
     if ride_request is None:
