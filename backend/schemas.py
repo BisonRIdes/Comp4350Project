@@ -1,10 +1,30 @@
 """Request and response models shared by the API routers."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
+EMAIL_REGEX: Final = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+"""Matches an email address in the format `[username]@[domain].[root_domain]`.
+
+- `^`          : Matches the beginning of the string.
+- `[^@\s]+`    : Matches one or more characters excluding '@' and whitespace (username).
+- `@`          : Matches the literal '@' symbol separating the username and domain.
+- `[^@\s]+`    : Matches one or more characters excluding '@' and whitespace (domain).
+- `\.`         : Matches the literal '.' separating the domain and root domain.
+- `[^@\s]+`    : Matches one or more characters excluding '@' and whitespace (root domain).
+- `$`          : Matches the end of the string.
+
+Example valid matches:
+    `user@example.com`
+    `john.doe@university.ca`
+    `student@mail.example.org`
+
+**Note:** This regex validates the general structure of an email address,
+but does not guarantee full compliance with email address standards.
+"""
 
 class GeoJSONPoint(BaseModel):
     """A GeoJSON point, stored as [longitude, latitude]."""
@@ -42,6 +62,8 @@ class UpdateRideBody(BaseModel):
     seats: int | None = Field(default=None, ge=0)
 
 class CreateUserRequest(BaseModel):
+    """Request body for creating a user account. Since account created cannot be driver by default,
+    `is_driver` is defaulted to `False` on creation."""
     username: str = Field(min_length=3, max_length=50)
     # basic format check; avoids needing the email-validator dependency
     email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -50,6 +72,7 @@ class CreateUserRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
+    """Represents the response model containing a user's public account information."""
     model_config = ConfigDict(from_attributes=True)
 
     id: str
