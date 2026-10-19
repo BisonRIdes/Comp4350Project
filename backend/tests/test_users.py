@@ -18,7 +18,7 @@ def test_create_account() -> None:
     data = response.json()
     assert data["username"] == "alice"
     assert data["is_driver"] is False
-    assert "password" not in data 
+    assert "password" not in data
     assert "password_hash" not in data
 
 
@@ -27,6 +27,7 @@ def test_create_account_duplicate() -> None:
     response = client.post("/users", json={**BODY, "username": "bob"})
 
     assert response.status_code == 409
+
 
 def test_create_account_concurrent_signup(monkeypatch):
     db = AsyncMock(spec=AsyncSession)

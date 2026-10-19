@@ -25,6 +25,7 @@ Example valid matches:
 but does not guarantee full compliance with email address standards.
 """
 
+
 class GeoJSONPoint(BaseModel):
     """A GeoJSON point, stored as [longitude, latitude]."""
 
@@ -60,9 +61,11 @@ class UpdateRideBody(BaseModel):
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
 
+
 class CreateUserRequest(BaseModel):
     """Request body for creating a user account. Since account created cannot be driver by default,
     `is_driver` is defaulted to `False` on creation."""
+
     username: str = Field(min_length=3, max_length=50)
     # basic format check; avoids needing the email-validator dependency
     email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -72,6 +75,7 @@ class CreateUserRequest(BaseModel):
 
 class UserResponse(BaseModel):
     """Represents the response model containing a user's public account information."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str

@@ -9,6 +9,7 @@ from database import Base
 
 user_id: Final = "users.id"
 
+
 def new_id() -> str:
     return str(uuid.uuid4())
 
