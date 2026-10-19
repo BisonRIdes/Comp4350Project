@@ -3,11 +3,10 @@ from datetime import datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 
 from database import SessionLocal
 from main import app
-from models import Ride, RideRegistration, RideRequest, User
+from models import Ride, RideRegistration, User
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
@@ -15,9 +14,9 @@ POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
 TIME = "2026-11-01T14:30:00"
 
 
-
 def new_id() -> str:
     return str(uuid4())
+
 
 async def make_user(name: str, is_driver: bool, i: str | None = None) -> str:
     user_id = i or new_id()
@@ -48,17 +47,16 @@ async def make_ride(driver_id: str, i: str | None = None, seats: int = 2) -> str
         await db.commit()
         return ride.id
 
+
 async def make_registration(ride: str, rider: str):
     async with SessionLocal() as db:
-        reg = RideRegistration(
-            ride_id=ride,
-            rider_id=rider
-        )
+        reg = RideRegistration(ride_id=ride, rider_id=rider)
         db.add(reg)
         await db.commit()
 
 
 # CREATE RIDE REQUEST
+
 
 async def test_create_ride_request_happy_path():
     ride_id = await make_ride("20")
@@ -71,6 +69,7 @@ async def test_create_ride_request_happy_path():
     assert body["ride_id"] == ride_id
     assert body["rider_id"] == rider_id
 
+
 async def test_create_ride_request_duplicate_request():
     await make_ride("20", "20")
     await make_user("bob", False, "0")
@@ -80,6 +79,7 @@ async def test_create_ride_request_duplicate_request():
 
     assert response.status_code == 409
 
+
 async def test_create_ride_request_already_registered():
     ride_id = await make_ride("20", "20")
     rider_id = await make_user("bob", False, "0")
@@ -88,6 +88,7 @@ async def test_create_ride_request_already_registered():
     response = client.post("/rides/20/requests")
 
     assert response.status_code == 409
+
 
 async def test_create_ride_request_nonexistent_ride():
     await make_ride("20", "20")
@@ -99,6 +100,7 @@ async def test_create_ride_request_nonexistent_ride():
 
 
 # ACCEPT RIDE REQUEST
+
 
 async def test_accept_ride_request_happy_path():
     ride_id = await make_ride("0", "20")
@@ -113,9 +115,10 @@ async def test_accept_ride_request_happy_path():
     assert body["ride_id"] == ride_id
     assert body["rider_id"] == rider_id
 
+
 async def test_accept_ride_request_already_accepted():
-    ride_id = await make_ride("0", "20")
-    rider_id = await make_user("bob", True, "0")
+    await make_ride("0", "20")
+    await make_user("bob", True, "0")
 
     request = client.post("/rides/20/requests").json()
     request_id = request["id"]
@@ -124,18 +127,20 @@ async def test_accept_ride_request_already_accepted():
 
     assert response.status_code == 409
 
-async def test_accept_ride_request_nonexistent_request():
-    ride_id = await make_ride("0", "20")
-    rider_id = await make_user("bob", True, "0")
 
-    response = client.patch(f"/requests/9999/accept")
+async def test_accept_ride_request_nonexistent_request():
+    await make_ride("0", "20")
+    await make_user("bob", True, "0")
+
+    response = client.patch("/requests/9999/accept")
 
     assert response.status_code == 404
 
+
 async def test_accept_ride_request_unauthorized():
-    driver_id = await make_user("alice", True, "50")
-    ride_id = await make_ride("50", "20")
-    rider_id = await make_user("bob", True, "0")
+    await make_user("alice", True, "50")
+    await make_ride("50", "20")
+    await make_user("bob", True, "0")
 
     request = client.post("/rides/20/requests").json()
     request_id = request["id"]
@@ -143,10 +148,11 @@ async def test_accept_ride_request_unauthorized():
 
     assert response.status_code == 403
 
+
 async def test_accept_ride_request_at_capacity():
     driver_id = await make_user("driver", True, "0")
     existing_rider_id = await make_user("existing_rider", False)
-    requester_id = await make_user("requester", False)
+    await make_user("requester", False)
 
     ride_id = await make_ride(driver_id, seats=1)
     await make_registration(ride_id, existing_rider_id)
@@ -160,9 +166,10 @@ async def test_accept_ride_request_at_capacity():
 
 # DECLINE RIDE REQUEST
 
+
 async def test_decline_ride_request_happy_path():
-    ride_id = await make_ride("0", "20")
-    rider_id = await make_user("bob", True, "0")
+    await make_ride("0", "20")
+    await make_user("bob", True, "0")
 
     request = client.post("/rides/20/requests").json()
     request_id = request["id"]
@@ -170,9 +177,10 @@ async def test_decline_ride_request_happy_path():
 
     assert response.status_code == 200
 
+
 async def test_decline_ride_request_already_declined():
-    ride_id = await make_ride("0", "20")
-    rider_id = await make_user("bob", True, "0")
+    await make_ride("0", "20")
+    await make_user("bob", True, "0")
 
     request = client.post("/rides/20/requests").json()
     request_id = request["id"]
@@ -181,18 +189,20 @@ async def test_decline_ride_request_already_declined():
 
     assert response.status_code == 409
 
-async def test_decline_ride_request_nonexistent_request():
-    ride_id = await make_ride("0", "20")
-    rider_id = await make_user("bob", True, "0")
 
-    response = client.patch(f"/requests/9999/decline")
+async def test_decline_ride_request_nonexistent_request():
+    await make_ride("0", "20")
+    await make_user("bob", True, "0")
+
+    response = client.patch("/requests/9999/decline")
 
     assert response.status_code == 404
 
+
 async def test_decline_ride_request_unauthorized():
-    driver_id = await make_user("alice", True, "50")
-    ride_id = await make_ride("50", "20")
-    rider_id = await make_user("bob", True, "0")
+    await make_user("alice", True, "50")
+    await make_ride("50", "20")
+    await make_user("bob", True, "0")
 
     request = client.post("/rides/20/requests").json()
     request_id = request["id"]
@@ -200,11 +210,13 @@ async def test_decline_ride_request_unauthorized():
 
     assert response.status_code == 403
 
+
 # CANCEL RIDE REQUEST
 
+
 async def test_cancel_ride_request_happy_path():
-    ride_id = await make_ride("0", "20")
-    rider_id = await make_user("bob", True, "0")
+    await make_ride("0", "20")
+    await make_user("bob", True, "0")
 
     request = client.post("/rides/20/requests").json()
     request_id = request["id"]
@@ -212,7 +224,8 @@ async def test_cancel_ride_request_happy_path():
 
     assert response.status_code == 204
 
+
 async def test_cancel_ride_request_nonexistent_request():
-    response = client.delete(f"/requests/9999/cancel")
+    response = client.delete("/requests/9999/cancel")
 
     assert response.status_code == 404
