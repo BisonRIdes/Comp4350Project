@@ -1,33 +1,17 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Ride, RideRegistration, RideRequest, User
+from schemas import RideRegistrationOut, RideRequestOut
 
 router = APIRouter(tags=["ride requests"])
 
 auth_driver_id = "0"  # !!TODO: get this from authenticated user
 auth_rider_id = "0"  # !!TODO: get this from authenticated user
-
-
-class RideRequestOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    ride_id: str
-    rider_id: str
-    status: str
-
-
-class RideRegistrationOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    ride_id: str
-    rider_id: str
 
 
 # helper method to reduce duplicate code

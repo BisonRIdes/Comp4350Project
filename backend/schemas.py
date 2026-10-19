@@ -40,3 +40,23 @@ class UpdateRideBody(BaseModel):
     origin_point: GeoJSONPoint | None = None
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
+
+
+class RideRequestOut(BaseModel):
+    """A ride request as returned by the API"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    ride_id: str
+    rider_id: str
+    status: str
+
+
+class RideRegistrationOut(BaseModel):
+    """A ride registration as returned by the API"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ride_id: str
+    rider_id: str
