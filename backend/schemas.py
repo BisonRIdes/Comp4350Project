@@ -67,7 +67,7 @@ class CreateUserRequest(BaseModel):
     `is_driver` is defaulted to `False` on creation."""
 
     ## Important: Pydantic Regex's engine does not support look-around, so enforcing model-config to use python-re is important
-    model_config = ConfigDict(regex_engine="python-re") 
+    model_config = ConfigDict(regex_engine="python-re")
 
     username: str = Field(min_length=3, max_length=36)
     # basic format check; avoids needing the email-validator dependency
