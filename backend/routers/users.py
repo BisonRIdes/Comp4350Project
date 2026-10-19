@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import User, CreateUserRequest, UserResponse
+from schemas import CreateUserRequest, UserResponse
 from util.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
