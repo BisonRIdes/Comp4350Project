@@ -4,8 +4,8 @@ from schemas import EMAIL_REGEX
 
 
 def test_match_email_regex():
-    assert re.findall(EMAIL_REGEX, "The example e-mail is client@example.ca")
-    assert re.findall(EMAIL_REGEX, "Hello from en.namu@jrfd.org")
+    assert re.search(EMAIL_REGEX, "The example e-mail is client@example.ca")
+    assert re.search(EMAIL_REGEX, "Hello from en.namu@jrfd.org")
 
 def test_fullmatch_email_regex():
     assert re.fullmatch(EMAIL_REGEX, "janedoe@gmail.com")
@@ -20,5 +20,6 @@ def test_no_email_regex():
     assert re.match(EMAIL_REGEX, "another excerpt with no emails") is None
 
 def test_invalid_email_regex():
-    assert re.match(EMAIL_REGEX, "Test with invalid email address @udfush@hfhdfhj.cos") is None
-    assert re.match(EMAIL_REGEX, "Another invalid e-mail user@domain@anotherdomain@rootdomain.com") is None
+    assert re.search(EMAIL_REGEX, "Test with invalid email address @udfush@hfhdfhj.cos") is None
+    assert re.search(EMAIL_REGEX, "Another invalid e-mail user@domain@anotherdomain@rootdomain.com") is None
+    assert re.fullmatch(EMAIL_REGEX, "@jdjsjd@jfdjfj@fjdvm.fgs") is None
