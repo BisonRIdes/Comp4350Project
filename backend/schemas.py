@@ -5,16 +5,14 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-EMAIL_REGEX: Final = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+EMAIL_REGEX: Final = r"[^@\s]+@[^@\s]+\.[^@\s]+$"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
 
-- `^`          : Matches the beginning of the string.
 - `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (username).
 - `@`          : Matches the literal '@' symbol separating the username and domain.
 - `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (domain).
 - `\\.`         : Matches the literal '.' separating the domain and root domain.
 - `[^@\\s]+`    : Matches one or more characters excluding '@' and whitespace (root domain).
-- `$`          : Matches the end of the string.
 
 Example valid matches:
     `user@example.com`
@@ -68,7 +66,7 @@ class CreateUserRequest(BaseModel):
 
     username: str = Field(min_length=3, max_length=36)
     # basic format check; avoids needing the email-validator dependency
-    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    email: str = Field(max_length=255, pattern=EMAIL_REGEX)
     password: str = Field(min_length=8)
     is_driver: bool = False
 
