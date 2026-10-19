@@ -1,44 +1,12 @@
-import os
 from datetime import datetime
 
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from database import SessionLocal
-from main import app
-from models import Ride, RideRegistration, RideRequest, User
+from models import Ride, RideRegistration, RideRequest
+from tests.helpers import POINT, client, make_ride, make_user
 
-client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
-
-POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
 TIME = "2026-11-01T14:30:00"
-
-
-async def make_user(name: str, is_driver: bool) -> str:
-    async with SessionLocal() as db:
-        user = User(
-            username=name,
-            email=f"{name}@b.com",
-            password_hash="hash",
-            is_driver=is_driver,
-        )
-        db.add(user)
-        await db.commit()
-        return user.id
-
-
-async def make_ride(driver_id: str, seats: int = 2) -> str:
-    async with SessionLocal() as db:
-        ride = Ride(
-            driver_id=driver_id,
-            origin_point=POINT,
-            departure_time=datetime(2026, 11, 1, 14, 30),
-            seats=seats,
-        )
-        db.add(ride)
-        await db.commit()
-        return ride.id
-
 
 # list rides
 
