@@ -42,6 +42,18 @@ class UpdateRideBody(BaseModel):
     seats: int | None = Field(default=None, ge=0)
 
 
+class CreateRideRequestBody(BaseModel):
+    """Request body for creating a ride request"""
+
+    rider_id: str  # TODO: take the rider from the logged-in user instead of the request body
+
+
+class RideRequestDecisionBody(BaseModel):
+    """Request body for when driver decides to accept or decline a request"""
+
+    driver_id: str  # TODO: take the rider from the logged-in user instead of the request body
+
+
 class RideRequestOut(BaseModel):
     """A ride request as returned by the API"""
 
