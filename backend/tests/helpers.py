@@ -2,21 +2,33 @@
 
 import os
 from datetime import datetime
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from database import SessionLocal
 from main import app
-from models import Ride, RideRequest, User
+from models import Ride, RideRegistration, RideRequest, User
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
 POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
 
 
-async def make_user(name: str, is_driver: bool = False) -> str:
+def new_id() -> str:
+    return str(uuid4())
+
+
+async def make_user(name: str, is_driver: bool = False, i: str | None = None) -> str:
+    user_id = i or new_id()
     async with SessionLocal() as db:
-        user = User(username=name, email=f"{name}@b.com", password_hash="hash", is_driver=is_driver)
+        user = User(
+            id=user_id,
+            username=name,
+            email=f"{name}@b.com",
+            password_hash="hash",
+            is_driver=is_driver,
+        )
         db.add(user)
         await db.commit()
         return user.id
@@ -41,3 +53,10 @@ async def make_request(ride_id: str, rider_id: str, status: str = "pending") -> 
         db.add(req)
         await db.commit()
         return req.id
+
+
+async def make_registration(ride: str, rider: str):
+    async with SessionLocal() as db:
+        reg = RideRegistration(ride_id=ride, rider_id=rider)
+        db.add(reg)
+        await db.commit()
