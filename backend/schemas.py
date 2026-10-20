@@ -64,8 +64,6 @@ class UpdateRideBody(BaseModel):
     seats: int | None = Field(default=None, ge=0)
 
 
-class RideRequestOut(BaseModel):
-    """A ride request as returned by the API."""
 class CreateRideRequestBody(BaseModel):
     """Request body for creating a ride request"""
 
