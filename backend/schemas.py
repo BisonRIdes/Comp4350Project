@@ -64,6 +64,45 @@ class UpdateRideBody(BaseModel):
     seats: int | None = Field(default=None, ge=0)
 
 
+class CreateRideRequestBody(BaseModel):
+    """Request body for creating a ride request"""
+
+    rider_id: str  # TODO: take the rider from the logged-in user instead of the request body
+
+
+class RideRequestDecisionBody(BaseModel):
+    """Request body for when driver decides to accept or decline a request"""
+
+    driver_id: str  # TODO: take the rider from the logged-in user instead of the request body
+
+
+class RideRequestOut(BaseModel):
+    """A ride request as returned by the API"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    ride_id: str
+    rider_id: str
+    status: Literal["pending", "accepted", "declined"]
+
+
+class RideRegistrationOut(BaseModel):
+    """A ride registration as returned by the API"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ride_id: str
+    rider_id: str
+
+
+class UpdatesOut(BaseModel):
+    """Everything the page needs to refresh for one user."""
+
+    pending_requests: list[RideRequestOut]
+    request_updates: list[RideRequestOut]
+
+
 class CreateUserRequest(BaseModel):
     """Request body for creating a user account. Since account created cannot be driver by default,
     `is_driver` is defaulted to `False` on creation."""
