@@ -62,6 +62,7 @@ A module, class or function has one reason to change.
 # Bad: one function validates, prices, saves and emails
 def book_ride(request): ...
 
+
 # Good: each piece has one job, and the service coordinates them
 def book_ride(ride_id: UUID, rider: User, db: Session) -> Booking:
     ride = ride_repository.get_for_update(db, ride_id)
@@ -365,8 +366,8 @@ Hardcoded values that depend on the environment never go in code:
 get_rides(user, True)
 
 # Good
-get_rides(user, include_cancelled=True)   # keyword-only
-get_cancelled_rides(user)                 # or a separate function
+get_rides(user, include_cancelled=True)  # keyword-only
+get_cancelled_rides(user)  # or a separate function
 ```
 
 - Functions that look like getters (`get_x`, `is_x`) must not have side effects.
@@ -392,6 +393,7 @@ def can_book(ride: Ride, seats: int) -> bool:
             return False
     else:
         return False
+
 
 # Good
 def can_book(ride: Ride, seats: int) -> bool:
@@ -583,9 +585,11 @@ class AppError(Exception):
     status_code: int = 500
     code: str = "INTERNAL_ERROR"
 
+
 class RideFullError(AppError):
     status_code = 409
     code = "RIDE_FULL"
+
 
 @app.exception_handler(AppError)
 async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
