@@ -23,14 +23,18 @@ async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]
         select(RideRequest)
         .join(Ride, Ride.id == RideRequest.ride_id)
         .where(Ride.driver_id == user_id, RideRequest.status == "pending")
+        .order_by(Ride.departure_time)
     )
 
     # rider view: this user's own requests that got an answer
     answered = await db.execute(
-        select(RideRequest).where(
+        select(RideRequest)
+        .join(Ride, Ride.id == RideRequest.ride_id)
+        .where(
             RideRequest.rider_id == user_id,
             RideRequest.status.in_(["accepted", "declined"]),
         )
+        .order_by(Ride.departure_time)
     )
 
     return UpdatesOut(
