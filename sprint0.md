@@ -58,35 +58,67 @@ University of Manitoba students.
 
 ## Initial technology and platform decisions
 
-- Deploy backend onto **Render** 
+### 1. Frontend
+ 
+#### React + TypeScript + Vite
+- **Why:** React has the ecosystem we need (Leaflet bindings, Stripe Elements, WebSocket hooks), and most of the team already knows it. TypeScript catches mismatched API shapes at compile time. This matters because the frontend and backend are built by different people. Vite gives fast dev-server reloads and a simple production build that outputs static files.
+#### Leaflet + OpenStreetMap tiles
+- **Why:** Leaflet is open source, lightweight and free. It has no API key and no billing account, and it handles everything we need: markers for drivers and riders, drawing a route line, and live marker movement. OpenStreetMap tiles work with it out of the box.
+- **Alternatives considered:** Google Maps and Mapbox were rejected because they need a billing account or API key and have usage-based pricing.
+#### Vercel (frontend hosting)
+- **Why:** The built frontend is just static files, which Vercel serves from a CDN. It deploys automatically from GitHub and creates a preview URL for every pull request, so reviewers can try UI changes before merging.
+ 
+### 2. Backend
+ 
+#### Python + FastAPI
+- **Why:** FastAPI is async-native. That matters for us because the server holds many open WebSocket connections for live locations and also makes outgoing HTTP calls to OpenRouteService, Stripe and Resend. Async lets one process handle all of this without blocking. Pydantic models validate every request automatically. FastAPI also generates OpenAPI/Swagger documentation from the code, which directly meets the course requirement for well-documented interfaces. Python is the language the whole team is strongest in.
+#### SQLAlchemy (ORM)
+- **Why:** SQLAlchemy is the standard Python ORM. Its models keep database access in one layer, separate from business logic, which meets the course rule that persistence stays separate from application logic. GeoAlchemy2 extends it to PostGIS types. Alembic handles schema migrations so every environment has the same schema.
+#### REST (`/api/v1`) + WebSockets (WSS)
+- **Why:** Ordinary actions such as signing up, requesting a ride or viewing history are request/response, so they fit REST. Versioning under `/api/v1` lets us change the API later without breaking the deployed frontend. Live driver locations and ride-status changes need the server to push updates to the client, so they go over WebSockets, encrypted as WSS.
+#### Docker on Render (backend hosting)
+- **Why:** The same Docker image runs on our laptops, in CI and in production, which avoids "works on my machine" problems. Render runs long-lived containers, which our WebSocket connections need. Serverless platforms such as Vercel Functions time out and can't hold persistent sockets. Render also provides managed Redis (Render Key Value) in the same platform.
+ 
+### 3. Data
+ 
+#### Supabase (PostgreSQL + PostGIS)
+- **Why:** Ride matching is a geospatial problem ("which available drivers are within X km of this rider?"). PostGIS answers that inside the database, using a spatial index and functions like `ST_DWithin`, instead of loading every driver into Python. Supabase gives us managed Postgres with PostGIS enabled, backups and a web dashboard for inspecting data, with no database server for us to run. It's relational, so trips, users and payments keep proper foreign-key integrity.
+#### Supavisor connection pooling (over TLS)
+- **Why:** Postgres can only hold a limited number of connections. Connecting through Supabase's pooler stops the backend from running out of connections when it restarts or scales. TLS encrypts all traffic between Render and Supabase.
+#### Redis (Render Key Value)
+- **Why:** We use Redis for three things:
+  1. **Caching OpenRouteService responses** for route and ETA lookups we've already made, which keeps us inside ORS's free daily quota and cuts latency.
+  2. **Holding current driver locations**, which change every few seconds. Writing every location update to Postgres would be wasteful; Redis keeps the latest position in memory, and only trip records are stored in Postgres.
+  3. A base for **rate limiting** and, if needed later, **pub/sub** between multiple backend instances.
+ 
+### 4. External services
+ 
+#### OpenRouteService (routing)
+- **Why:** It gives driving routes, distances and ETAs, which we need for showing the trip path, estimating fares and estimating arrival times. It's based on OpenStreetMap data, so it matches our map tiles, and it has a free tier that only needs an API key.
+#### Stripe (test mode)
+- **Why:** Stripe's test mode lets us build and demo a realistic payment flow with test cards and no real money. Payment confirmation arrives through **webhooks** sent from Stripe to our backend, so a trip is only marked paid when Stripe itself says so. We never trust the client to report that a payment succeeded. Stripe also handles card data, so card numbers never touch our servers, which keeps us out of PCI compliance scope.
+#### Resend (email)
+- **Why:** We need transactional email such as ride receipts and account verification. Resend has a simple HTTP API with a Python SDK and a free tier large enough for development and demos.
+- **Alternatives considered:** Twilio SMS costs money per message and needs phone-number setup and verification; it is deferred as a possible later addition. Running our own SMTP server would cause deliverability problems.
+ 
+### 5. Authentication
+ 
+#### JWT (JSON Web Tokens)
+- **Why:** The frontend (Vercel) and API (Render) are on different domains, which makes cookie-based sessions awkward. A JWT sent in the `Authorization` header works across domains. The same token can authenticate the WebSocket connection, so REST and WebSockets share one auth mechanism. JWTs are stateless, so the backend doesn't need a session store. Each token carries the user's role (rider or driver) for permission checks.
 
-- Use **Supabase** for the DB 
-
-- Deploy frontend website onto **Vercel** 
-
-- **Vite**, **TS** to build frontend 
-
-- **Resend** for sending emails or **Twilio** for sending SMSs 
-
-- **GitHub Actions** for CI/CD pipelines, 
-
-- **Sonar Cloud** on PR, Push 
-
-- **Trivy** maybe on PR, Push 
-
-- CD with **Docker** (render deploys image) 
-
-- **Leaflet** to visualize the map on the frontend 
-
-- **Openrouteservice** API for map calls 
-
-- **Python**, (**Flask** or **FastAPI**) with **SQLAlchemy** 
-
-- **Stripe** for payments 
-
-- Caching (**Redis**) 
-
-- **JWT** for authenticating in the frontend 
+### 6. CI/CD and code quality
+ 
+#### GitHub Actions
+- **Why:** Our code already lives on GitHub, so CI runs next to it with no separate service and is free for our usage. Pipelines are defined as YAML in the repo, so they are versioned and reviewed like code.
+- **Pipeline:** On every pull request and push, CI runs the tests, SonarCloud analysis and Trivy scans. On merge to `main`, it also builds the Docker image, pushes it to Docker Hub and calls Render's deploy hook.
+#### SonarCloud (on PR and push)
+- **Why:** SonarCloud gives automated static analysis of our own code: bugs, code smells, duplication, security hotspots and test coverage. Its results appear directly on pull requests, and its quality gate can block a merge, so code quality is checked on every change rather than at the end of the project. It is free for public repositories.
+- **Trade-offs:** It can produce false positives, so we'll tune rules as needed rather than ignoring the dashboard.
+#### Trivy (on PR and push)
+- **Why:** SonarCloud checks the code we write. Trivy checks what we depend on: known vulnerabilities (CVEs) in our Python packages, npm packages and the Docker base image. Together they cover both our own code and third-party code.
+- **Decision:** Trivy is included. At first it only reports findings; once the baseline is clean, it will fail the build on critical vulnerabilities.
+#### Docker Hub + Render deploy hook (continuous deployment)
+- **Why:** CI builds the image only after the tests pass and pushes it to Docker Hub. It then calls Render's deploy hook, and Render deploys that exact image. The result is that only tested code reaches production, the image we tested is the image that runs, and rolling back means redeploying an earlier image tag.
 
 ## Lightweight Architecture Sketch
 
