@@ -23,7 +23,7 @@ export function AuthLayout({ title, subtitle, children, footer, panelTitle, pane
           BisonRides
         </Link>
 
-        <div className="flex flex-1 items-center justify-center py-12">
+        <div className="flex flex-1 items-start justify-center py-12 sm:items-center">
           <div className="w-full max-w-sm">
             <Reveal>
               <h1 className={`text-[clamp(2.5rem,5vw,3.25rem)] leading-[1.02] ${headingClass}`}>{title}</h1>
@@ -45,7 +45,7 @@ export function AuthLayout({ title, subtitle, children, footer, panelTitle, pane
             <h2 className={`max-w-md text-5xl leading-[1.02] ${headingClass}`}>{panelTitle}</h2>
             <p className="mt-4 max-w-sm text-lg leading-relaxed text-subtle">{panelText}</p>
           </Reveal>
-          <CarScene cars={panelCars} skyTop="#f5f5f7" className="mt-auto block aspect-[5/4] w-full" />
+          <CarScene cars={panelCars} skyTop="#f5f5f7" className="mt-auto block aspect-[5/4] min-h-0 w-full" />
         </div>
       </div>
     </div>

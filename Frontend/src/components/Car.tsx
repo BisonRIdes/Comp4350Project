@@ -20,17 +20,15 @@ const seatPositions = [226, 150, 120]
 function Wheel({ cx }: { cx: number }) {
   return (
     <g transform={`translate(${cx} 120)`}>
-      <g>
-        <circle r="27" fill="#1d1d1f" />
-        <circle r="23.5" fill="none" stroke="#3a3a3c" strokeWidth="1.5" />
-        <circle r="18" fill="#d1d1d6" />
-        <circle r="18" fill="none" stroke="#f5f5f7" strokeWidth="1.5" />
-        {[0, 72, 144, 216, 288].map((angle) => (
-          <path key={angle} d="M-2.6 -4 L-4 -16 L4 -16 L2.6 -4 Z" fill="#8e8e93" transform={`rotate(${angle})`} />
-        ))}
-        <circle r="5" fill="#636366" />
-        <circle r="2" fill="#d1d1d6" />
-      </g>
+      <circle r="27" fill="#1d1d1f" />
+      <circle r="23.5" fill="none" stroke="#3a3a3c" strokeWidth="1.5" />
+      <circle r="18" fill="#d1d1d6" />
+      <circle r="18" fill="none" stroke="#f5f5f7" strokeWidth="1.5" />
+      {[0, 72, 144, 216, 288].map((angle) => (
+        <path key={angle} d="M-2.6 -4 L-4 -16 L4 -16 L2.6 -4 Z" fill="#8e8e93" transform={`rotate(${angle})`} />
+      ))}
+      <circle r="5" fill="#636366" />
+      <circle r="2" fill="#d1d1d6" />
     </g>
   )
 }

@@ -13,8 +13,10 @@ export const secondaryButton =
 
 export const headingClass = 'font-serif font-semibold tracking-[-0.02em] text-ink'
 
+// Ring colours live in the two variants below: combining two ring colours on one element
+// lets the generated CSS order decide which wins, not the class order.
 const inputBase =
-  'w-full rounded-xl bg-mist px-4 py-3.5 text-[15px] text-ink ring-1 ring-transparent transition duration-300 ease-smooth placeholder:text-neutral-400 hover:ring-black/10 focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink'
+  'w-full rounded-xl bg-mist px-4 py-3.5 text-[15px] text-ink ring-1 transition duration-300 ease-smooth placeholder:text-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink'
 
-export const inputClass = inputBase
+export const inputClass = `${inputBase} ring-transparent hover:ring-black/10`
 export const inputErrorClass = `${inputBase} ring-black/40`

@@ -30,7 +30,7 @@ export function Navbar() {
           ))}
         </div>
         <div className="flex items-center gap-5 text-[13px]">
-          <Link to="/login" className="hidden text-subtle transition-colors duration-300 hover:text-ink sm:inline">
+          <Link to="/login" className="text-subtle transition-colors duration-300 hover:text-ink">
             Log in
           </Link>
           <Link

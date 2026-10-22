@@ -49,7 +49,7 @@ const benefits = [
 ]
 
 const steps = [
-  { title: 'Sign up', text: 'Create an account as a rider, a driver, or both.' },
+  { title: 'Sign up', text: 'Create an account as a rider or a driver.' },
   { title: 'Post or find a ride', text: 'Drivers post their routes. Riders search or post a request.' },
   { title: 'Ride together', text: 'Confirm the details, split the cost, and head to campus.' },
 ]
@@ -116,7 +116,6 @@ export default function HomePage() {
               </Link>
             </div>
           </Reveal>
-
         </section>
 
         <section id="rides" className="bg-mist py-24 sm:py-32">
@@ -166,7 +165,7 @@ export default function HomePage() {
               </h2>
             </Reveal>
             <Reveal>
-              <div className="group relative h-full overflow-hidden rounded-3xl bg-mist p-8 sm:p-10">
+              <div className="flex h-full flex-col overflow-hidden rounded-3xl bg-mist p-8 sm:p-10">
                 <p className="text-sm font-medium text-subtle">For riders</p>
                 <h3 className="mt-2 text-2xl font-semibold tracking-tight">Instead of bussing</h3>
                 <ul className="mt-6 space-y-3 text-lg text-subtle">
@@ -174,24 +173,28 @@ export default function HomePage() {
                   <li>Pay a fraction of the price of gas</li>
                   <li>Save time on your commute</li>
                 </ul>
-                <CarScene
-                  cars={[{ tone: 'white', passengers: 3, x: 330, width: 540 }]}
-                  className="mt-8 block aspect-[16/9] w-full rounded-2xl"
-                />
+                <div className="mt-auto pt-8">
+                  <CarScene
+                    cars={[{ tone: 'white', passengers: 3, x: 330, width: 540 }]}
+                    className="block aspect-[16/9] w-full rounded-2xl"
+                  />
+                </div>
               </div>
             </Reveal>
             <Reveal delay={120}>
-              <div className="group relative h-full overflow-hidden rounded-3xl bg-ink p-8 text-white sm:p-10">
+              <div className="flex h-full flex-col overflow-hidden rounded-3xl bg-ink p-8 text-white sm:p-10">
                 <p className="text-sm font-medium text-neutral-400">For drivers</p>
                 <h3 className="mt-2 text-2xl font-semibold tracking-tight">Instead of driving alone</h3>
                 <ul className="mt-6 space-y-3 text-lg text-neutral-400">
                   <li>Have part of your gas paid for</li>
                   <li>Meet people who also go to UM</li>
                 </ul>
-                <CarScene
-                  cars={[{ tone: 'silver', passengers: 1, x: 330, width: 540 }]}
-                  className="mt-8 block aspect-[16/9] w-full rounded-2xl"
-                />
+                <div className="mt-auto pt-8">
+                  <CarScene
+                    cars={[{ tone: 'silver', passengers: 1, x: 330, width: 540 }]}
+                    className="block aspect-[16/9] w-full rounded-2xl"
+                  />
+                </div>
               </div>
             </Reveal>
           </div>
@@ -318,7 +321,7 @@ export default function HomePage() {
 
         <section className="px-4 pb-6 sm:px-6">
           <Reveal>
-            <div className="group mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-mist px-6 pt-24 text-center sm:pt-32">
+            <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-mist px-6 pt-24 text-center sm:pt-32">
               <h2 className={`text-[clamp(2.75rem,7vw,5.5rem)] leading-[0.98] ${headingClass}`}>
                 Ready to share <em className="text-subtle">the ride?</em>
               </h2>
@@ -341,7 +344,8 @@ export default function HomePage() {
                   { tone: 'black', passengers: 2, x: 465, width: 270 },
                   { tone: 'white', passengers: 3, x: 760, width: 270 },
                 ]}
-                className="-mx-6 mt-16 block aspect-[2/1] w-[calc(100%+3rem)] sm:aspect-[3/1]"
+                skyTop="#f5f5f7"
+                className="-mx-6 mt-16 block aspect-[2/1] w-[calc(100%+3rem)] sm:aspect-[12/5]"
               />
             </div>
           </Reveal>
