@@ -1,12 +1,15 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import User
-from schemas import UserResponse, VerifyEmailBody
-from util.tokens import read_token
+from schemas import ResendVerificationBody, UserResponse, VerifyEmailBody
+from util.constants import VERIFY_TOKEN_HOURS
+from util.email import send_verification_email
+from util.tokens import create_token, read_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,3 +31,15 @@ async def verify_email(body: VerifyEmailBody, db: Annotated[AsyncSession, Depend
     user.is_verified = True
     await db.commit()
     return user
+
+
+# send a fresh link, e.g. if the first email got lost or the link expired
+@router.post("/resend-verification", status_code=204)
+async def resend_verification(
+    body: ResendVerificationBody, db: Annotated[AsyncSession, Depends(get_db)]
+) -> None:
+    user = await db.scalar(select(User).where(User.email == body.email.lower()))
+    # same response either way, so nobody can use this to check which emails have accounts
+    if user is not None and not user.is_verified:
+        token = create_token(user.id, "verify", VERIFY_TOKEN_HOURS)
+        await send_verification_email(user.email, token)

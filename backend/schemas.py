@@ -133,6 +133,12 @@ class VerifyEmailBody(BaseModel):
     token: str
 
 
+class ResendVerificationBody(BaseModel):
+    """The email to send a new verification link to."""
+
+    email: str
+
+
 class UserResponse(BaseModel):
     """Represents the response model containing a user's public account information."""
 

@@ -19,15 +19,18 @@ def new_id() -> str:
     return str(uuid4())
 
 
-async def make_user(name: str, is_driver: bool = False, i: str | None = None) -> str:
+async def make_user(
+    name: str, is_driver: bool = False, i: str | None = None, verified: bool = False
+) -> str:
     user_id = i or new_id()
     async with SessionLocal() as db:
         user = User(
             id=user_id,
             username=name,
-            email=f"{name}@b.com",
+            email=f"{name}@myumanitoba.ca",
             password_hash="hash",
             is_driver=is_driver,
+            is_verified=verified,
         )
         db.add(user)
         await db.commit()
