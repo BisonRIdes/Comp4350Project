@@ -3,21 +3,20 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
 export default defineConfig(({ mode }) => {
-  // Read backend/.env so local requests use the same API_KEY as the local backend.
-  const backendEnv = loadEnv(mode, '../backend', '')
-  // Which backend /api forwards to. Defaults to the local one; set API_TARGET in Frontend/.env.local
-  // (e.g. https://bisonrides-api.onrender.com) to use the deployed backend instead.
-  const frontendEnv = loadEnv(mode, process.cwd(), '')
+  // Local settings from Frontend/.env.local (see .env.example). Not prefixed with VITE_,
+  // so they're only used by this dev server and never end up in the browser bundle.
+  const env = loadEnv(mode, process.cwd(), '')
 
   return {
     plugins: [react(), tailwindcss()],
     server: {
+      // Dev-only stand-in for api/proxy.ts, which does the same job on Vercel.
       proxy: {
         '/api': {
-          target: frontendEnv.API_TARGET || 'http://127.0.0.1:8000',
+          target: env.API_TARGET || 'http://127.0.0.1:8000',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
-          headers: { 'x-key': backendEnv.API_KEY ?? '' },
+          headers: { 'x-key': env.API_KEY ?? '' },
         },
       },
     },
