@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from database import SessionLocal
 from main import app
 from models import Ride, RideRegistration, RideRequest, User
+from util.security import hash_password
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
@@ -20,7 +21,11 @@ def new_id() -> str:
 
 
 async def make_user(
-    name: str, is_driver: bool = False, i: str | None = None, verified: bool = False
+    name: str,
+    is_driver: bool = False,
+    i: str | None = None,
+    verified: bool = False,
+    password: str | None = None,
 ) -> str:
     user_id = i or new_id()
     async with SessionLocal() as db:
@@ -28,7 +33,8 @@ async def make_user(
             id=user_id,
             username=name,
             email=f"{name}@myumanitoba.ca",
-            password_hash="hash",
+            # hashing is slow on purpose, so only do it for tests that log in
+            password_hash=await hash_password(password) if password else "hash",
             is_driver=is_driver,
             is_verified=verified,
         )

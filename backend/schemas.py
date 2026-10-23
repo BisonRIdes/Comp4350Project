@@ -149,3 +149,18 @@ class UserResponse(BaseModel):
     email: str
     is_driver: bool
     is_verified: bool
+
+
+class LoginBody(BaseModel):
+    """Email and password for logging in."""
+
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """A login token and the account it belongs to. Send the token as `Authorization: Bearer`."""
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    user: UserResponse
