@@ -127,6 +127,12 @@ class CreateUserRequest(BaseModel):
         return email
 
 
+class VerifyEmailBody(BaseModel):
+    """The token from the link in the verification email."""
+
+    token: str
+
+
 class UserResponse(BaseModel):
     """Represents the response model containing a user's public account information."""
 
