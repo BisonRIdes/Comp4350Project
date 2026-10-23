@@ -1,0 +1,532 @@
+openapi: 3.1.0
+info:
+  title: Ride Share API
+  version: 0.1.0
+  description: |
+    Contract for the ride-share backend.
+
+    Every request must include the `x-key` header, otherwise the server responds with 401.
+
+    Only University of Manitoba students can use the app. Sign up with an `@myumanitoba.ca`
+    email, open the link in the verification email, then log in with `POST /auth/login`.
+    Send the returned token as `Authorization: Bearer <token>` on every other request.
+    Sign up and the `/auth` endpoints are the only ones that don't need the token.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://bisonrides-api.onrender.com
+    description: Deployed on Render
+
+# Applies to every operation unless it says otherwise: the API key AND a login token.
+security:
+  - ApiKeyHeader: []
+    BearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Rides
+  - name: Requests
+  - name: Updates
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in with a student email and password
+      security:
+        - ApiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Login successful. Send `access_token` as a Bearer token from now on.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "401":
+          description: Wrong email or password (the same response for both)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: The student hasn't verified their email yet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /auth/verify:
+    post:
+      tags: [Auth]
+      operationId: verifyEmail
+      summary: Verify a student email with the token from the emailed link
+      description: The link in the email opens the frontend's `/verify?token=...` page, which sends the token here. Verifying twice is fine.
+      security:
+        - ApiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyEmailRequest" }
+      responses:
+        "200":
+          description: Email verified, the student can log in now
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: The link is invalid or expired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      operationId: resendVerification
+      summary: Email a new verification link
+      description: Returns 204 whether or not the email has an account, so it can't be used to find out who signed up. Nothing is sent if the account is already verified.
+      security:
+        - ApiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResendVerificationRequest" }
+      responses:
+        "204":
+          description: A new link was sent if the account exists and isn't verified yet
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /users:
+    post:
+      tags: [Users]
+      operationId: createUser
+      summary: Create an account with an @myumanitoba.ca email
+      description: Emails a verification link to the student. The account can't log in until the link is opened.
+      security:
+        - ApiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      responses:
+        "201":
+          description: Account created, not verified yet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: An account with this username or email already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Invalid body, including an email that isn't @myumanitoba.ca
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /users/me:
+    get:
+      tags: [Users]
+      operationId: getCurrentUser
+      summary: The logged-in student's own account
+      responses:
+        "200":
+          description: The logged-in account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /rides:
+    get:
+      tags: [Rides]
+      operationId: listRides
+      summary: List all rides, soonest first
+      responses:
+        "200":
+          description: List of rides
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Rides]
+      operationId: createRide
+      summary: The logged-in driver posts a ride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRideRequest" }
+      responses:
+        "201":
+          description: Ride created, with the logged-in user as the driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The logged-in user is not a driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /rides/{ride_id}:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    patch:
+      tags: [Rides]
+      operationId: updateRide
+      summary: The ride's driver updates it (partial update)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRideRequest" }
+      responses:
+        "200":
+          description: Updated ride
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotYourRide" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Rides]
+      operationId: deleteRide
+      summary: The ride's driver deletes it
+      responses:
+        "204":
+          description: Ride deleted, along with its pending requests
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotYourRide" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The ride has accepted riders and cannot be deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rides/{ride_id}/requests:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    post:
+      tags: [Requests]
+      operationId: createRideRequest
+      summary: The logged-in rider asks to join a ride
+      description: No request body. The rider is whoever is logged in.
+      responses:
+        "201":
+          description: Request created with status `pending`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RideRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The rider already requested or already joined this ride
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /requests/{request_id}/accept:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    patch:
+      tags: [Requests]
+      operationId: acceptRideRequest
+      summary: The ride's driver accepts a request
+      description: Sets status to `accepted` and adds the rider to the ride.
+      responses:
+        "200":
+          description: Request accepted, the rider is registered for the ride
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RideRegistration" }
+        "400":
+          description: The ride is full, or the ride's driver is no longer a driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The logged-in user is not this ride's driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The request is not pending
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /requests/{request_id}/decline:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    patch:
+      tags: [Requests]
+      operationId: declineRideRequest
+      summary: The ride's driver declines a request
+      responses:
+        "200":
+          description: Request declined (empty body)
+        "400":
+          description: The ride's driver is no longer a driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The logged-in user is not this ride's driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The request is not pending
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /requests/{request_id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    delete:
+      tags: [Requests]
+      operationId: cancelRideRequest
+      summary: The rider cancels their own request
+      description: If the request was already accepted, the rider is also removed from the ride.
+      responses:
+        "204":
+          description: Request cancelled
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The request belongs to someone else
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /updates:
+    get:
+      tags: [Updates]
+      operationId: getUpdates
+      summary: Get everything needed to refresh the page for the logged-in user
+      description: |
+        Returns pending requests waiting on this user (as a driver) and requests
+        this user made (as a rider) that have since been accepted or declined.
+      responses:
+        "200":
+          description: Updates for the logged-in user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Updates" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-key
+      description: Required on every request. Missing or invalid returns 401.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: The `access_token` from `POST /auth/login`. Expires after 24 hours.
+
+  parameters:
+    RideId:
+      name: ride_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RequestId:
+      name: request_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid `x-key` header, or not logged in (missing, invalid or expired token)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotYourRide:
+      description: The logged-in user is not this ride's driver
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Request body or parameters failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          description: A message for most errors. For 422 validation errors, a list of what failed.
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: object }
+
+    User:
+      type: object
+      description: Public account details. Never includes the password hash.
+      required: [id, username, email, is_driver, is_verified]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        email: { type: string, format: email }
+        is_driver: { type: boolean }
+        is_verified: { type: boolean, description: Whether the student has opened the verification link }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, description: Not case-sensitive }
+        password:
+          type: string
+          format: password
+          description: Plaintext password, sent over HTTPS. The server hashes and compares it.
+
+    LoginResponse:
+      type: object
+      required: [access_token, token_type, user]
+      properties:
+        access_token: { type: string, description: "Send as `Authorization: Bearer <token>`" }
+        token_type: { type: string, enum: [bearer] }
+        user: { $ref: "#/components/schemas/User" }
+
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, description: The `token` query parameter from the emailed link }
+
+    ResendVerificationRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    CreateUserRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 36, description: Must be unique }
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Must be an @myumanitoba.ca student email. Stored in lowercase.
+        password: { type: string, format: password, minLength: 8 }
+        is_driver: { type: boolean, default: false }
+
+    GeoJSONPoint:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, enum: [Point] }
+        coordinates:
+          type: array
+          description: "[longitude, latitude]"
+          minItems: 2
+          maxItems: 2
+          items: { type: number }
+      examples:
+        - { type: Point, coordinates: [-97.1384, 49.8951] }
+
+    Ride:
+      type: object
+      required: [id, driver_id, origin_point, departure_time, seats]
+      properties:
+        id: { type: string, format: uuid }
+        driver_id: { type: string, format: uuid }
+        origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+        departure_time: { type: string, format: date-time }
+        seats: { type: integer, minimum: 0 }
+
+    CreateRideRequest:
+      type: object
+      description: The driver is whoever is logged in.
+      required: [origin_point, departure_time]
+      properties:
+        origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+        departure_time: { type: string, format: date-time }
+        seats: { type: integer, minimum: 1, default: 1 }
+
+    UpdateRideRequest:
+      type: object
+      minProperties: 1
+      properties:
+        origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+        departure_time: { type: string, format: date-time }
+        seats: { type: integer, minimum: 0 }
+
+    RequestStatus:
+      type: string
+      enum: [pending, accepted, declined]
+
+    RideRequest:
+      type: object
+      required: [id, ride_id, rider_id, status]
+      properties:
+        id: { type: string, format: uuid }
+        ride_id: { type: string, format: uuid }
+        rider_id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/RequestStatus" }
+
+    RideRegistration:
+      type: object
+      description: A rider who has been accepted onto a ride.
+      required: [ride_id, rider_id]
+      properties:
+        ride_id: { type: string, format: uuid }
+        rider_id: { type: string, format: uuid }
+
+    Updates:
+      type: object
+      required: [pending_requests, request_updates]
+      properties:
+        pending_requests:
+          type: array
+          description: Requests on this user's rides that are still waiting for a response (driver view)
+          items: { $ref: "#/components/schemas/RideRequest" }
+        request_updates:
+          type: array
+          description: This user's requests that have been accepted or declined (rider view)
+          items: { $ref: "#/components/schemas/RideRequest" }

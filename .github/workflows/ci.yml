@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # SonarCloud needs full history to tell new code from old.
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      # The Docker image installs from requirements.lock (with hashes), so it must match requirements.txt.
+      - name: Check requirements.lock is up to date
+        run: |
+          pip install uv==0.12.24
+          uv pip compile requirements.txt --generate-hashes --no-header --no-annotate \
+            --python-version 3.12 --python-platform linux --quiet -o requirements.lock
+          git diff --exit-code requirements.lock \
+            || { echo "::error::requirements.lock is out of date. See 'Adding a dependency' in backend/README.md."; exit 1; }
+      - name: Lint
+        run: ruff check .
+      - name: Format
+        run: ruff format --check .
+      - name: Test
+        run: pytest --cov --cov-report=term-missing --cov-report=xml
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      # Same build Vercel runs (tsc type check + vite build).
+      - name: Build
+        run: npm run build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Pinned to a commit, not a tag: this action's tags were hijacked in March 2026.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The same image Render builds from backend/Dockerfile.
+      - name: Build the backend image
+        run: docker build -t bisonrides-api backend
+      # Importing the app fails if the Dockerfile forgot to copy a module.
+      - name: Import the app inside the image
+        run: >-
+          docker run --rm
+          -e API_KEY=ci -e JWT_SECRET=ci-only-secret-that-is-at-least-32-bytes
+          -e DATABASE_URL=sqlite+aiosqlite:///./ci.db
+          bisonrides-api python -c "import main"
+
+  deploy-backend:
+    needs: [backend, security, docker]
+    # Only pushes to dev deploy; PRs just run the checks. Render's own auto-deploy is off.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment:
+      name: render
+      # /docs is the one page that doesn't need the x-key header.
+      url: https://bisonrides-api.onrender.com/docs
+    steps:
+      # Starts a Render deploy of this exact commit. Build/deploy progress is in the Render dashboard.
+      - run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK&ref=$GITHUB_SHA"
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
