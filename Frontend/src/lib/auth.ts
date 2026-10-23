@@ -9,10 +9,6 @@ export function saveSession(token: string, { id, username, email, is_driver }: C
   localStorage.setItem(KEY, JSON.stringify({ id, username, email, is_driver }))
 }
 
-export function saveUser({ id, username, email, is_driver }: CurrentUser) {
-  localStorage.setItem(KEY, JSON.stringify({ id, username, email, is_driver }))
-}
-
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
