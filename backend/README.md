@@ -28,6 +28,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Adding a dependency
+Add or change the pinned version in `requirements.txt`, then regenerate `requirements.lock`, which the Docker image installs from with hash checking:
+```bash
+pip install uv==0.12.24
+uv pip compile requirements.txt --generate-hashes --no-header --no-annotate --python-version 3.12 --python-platform linux --quiet -o requirements.lock
+```
+Commit both files. CI fails if `requirements.lock` doesn't match `requirements.txt`.
+
 ## Run the app
 ```bash
 uvicorn main:app --reload

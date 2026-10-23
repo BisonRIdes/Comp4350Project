@@ -26,6 +26,14 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
+      # The Docker image installs from requirements.lock (with hashes), so it must match requirements.txt.
+      - name: Check requirements.lock is up to date
+        run: |
+          pip install uv==0.12.24
+          uv pip compile requirements.txt --generate-hashes --no-header --no-annotate \
+            --python-version 3.12 --python-platform linux --quiet -o requirements.lock
+          git diff --exit-code requirements.lock \
+            || { echo "::error::requirements.lock is out of date. See 'Adding a dependency' in backend/README.md."; exit 1; }
       - name: Lint
         run: ruff check .
       - name: Format
