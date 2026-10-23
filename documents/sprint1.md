@@ -16,7 +16,7 @@
 | Backend setup | [`backend/README.md`](backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](Frontend/README.md) |
 
-## Sprint Summary ["Matt"]
+## Sprint Summary
 
 The main focus of sprint 1 was to implement the core user flow of Bison Rides for both drivers and riders. This core functionality allows both parties to use the application and get meaningful value out of it as a ride sharing app for commuting to campus.
 
@@ -34,7 +34,7 @@ Overall, what we've implemented so far provides both the riders and drivers who 
 
 The detailed record of completed work is on the sprint board and in the closed issues.
 
-## Testing Status ["Alon"]
+## Testing Status
 
 **Approach**
 
@@ -54,7 +54,7 @@ The detailed record of completed work is on the sprint board and in the closed i
 
 Coverage is reported on every CI run and uploaded to [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project). To run the tests locally, see [Run the tests](backend/README.md#run-the-tests).
 
-## CI Status ["Raj"]
+## CI Status
 
 Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
@@ -82,6 +82,8 @@ Branch rules: issue branches come off `dev`, and every PR needs two reviews befo
 
 - **Spec (source of truth):** [`documents/openapi.yaml`](documents/openapi.yaml)
 - **Live interactive docs:** https://bisonrides-api.onrender.com/docs. Click **Authorize** and enter the API key to try endpoints. Ask a team member for the key.
+
+> **Subject to change** remove ask a team member for the key and replace it with proper known sentence
 
 Endpoints in Sprint 1:
 
@@ -127,30 +129,29 @@ Setup and run docs:
 
 Note: Render's free tier sleeps when idle, so the first request can take up to about a minute.
 
-## Reflection ["Shiv"]
+## Reflection
 
-TODO: fill in as a team. Keep each to two or three points.
+**What is one commit, pull request, feature, or technical decision your team is particularly proud of, and why?**
 
-**What went well**
+- One technical decision we’re proud of is building our backend endpoints with unit tests written alongside them. Because we tested each endpoint as we built it, we caught bugs early and could make changes without worrying about breaking existing functionality. This gives us a solid foundation for Sprint 2, when more features will depend on these endpoints.
 
-- 
+**What is one piece of work that could have been cleaner, easier to integrate, better tested, or otherwise improved, and why?**
 
-**What did not go well**
+- One area that could be improved is our test coverage. We only wrote unit tests this sprint, so we haven’t verified that the frontend and backend work correctly together. In Sprint 2, we plan to add integration tests for our main workflows so problems between components are caught before merging.
 
-- 
+**How did testing fit into your workflow?**
 
-**What we will change in Sprint 2**
+- Our unit tests were written alongside the backend, during implementation rather than before or after. This helped in two ways: it saved time, which was limited because of everyone’s busy schedules, and it let us confirm as we went that new code wasn’t breaking existing functionality. This sprint we focused only on unit tests, since our main goal was to build robust backend endpoints that would give the project a strong foundation. Integration tests will come in later sprints, once more services need to communicate with each other. A more test-driven approach would likely have made this sprint harder in the short term. Our endpoints and data models were still changing as we figured out the design, so tests written first would have needed frequent rewrites, and that would have cost time we didn’t have. As our APIs become more stable, we could try writing tests first for new features in the next sprint.
 
-- 
-
-## Known Issues ["Alon"]
+## Known Issues
 
 - **No real user auth.** `POST /auth/login` is a stub and JWT is not implemented. All clients share one API key, so endpoints do not check that the caller owns the ride or request they are changing.
 - **Deleting a ride with accepted riders.** Currently returns `409 Conflict`. The team has not decided the final rule yet (for example cancel the ride and email riders instead).
 - **Updates feed returns all history.** `GET /updates` returns every accepted or declined request, including ones the rider has already seen. Whether to hide seen updates is still open.
 - **Tests run on SQLite, production runs on Postgres.** Postgres specific behaviour, including any future PostGIS queries, is not covered by tests yet.
+- **No frontend tests yet.** The frontend only gets lint and build checks
 
-## Incomplete Features ["unassigned"]
+## Incomplete Features
 
 Features that are started or planned but not finished on `dev`:
 
