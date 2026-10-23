@@ -8,13 +8,13 @@
 | --- | --- |
 | Sprint board | TODO: add GitHub Projects board link |
 | Issues | [GitHub Issues](https://github.com/BisonRIdes/Comp4350Project/issues) |
-| CI workflow | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ([runs](https://github.com/BisonRIdes/Comp4350Project/actions/workflows/ci.yml)) |
+| CI workflow | [`.github/workflows/ci.yml`](https://github.com/BisonRIdes/Comp4350Project/actions/workflows/ci.yml) |
 | Code quality | [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project) |
 | API spec | [`documents/openapi.yaml`](documents/openapi.yaml) |
 | Live API docs | https://bisonrides-api.onrender.com/docs |
-| Architecture | [Architecture diagram](documents/ArchitectureDiagram.png) |
-| Backend setup | [`backend/README.md`](backend/README.md) |
-| Frontend setup | [`Frontend/README.md`](Frontend/README.md) |
+| Architecture | [Architecture Diagram](../documents/ArchitectureDiagram.png) |
+| Backend setup | [`backend/README.md`](../backend/README.md) |
+| Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
 
 ## Sprint Summary
 
