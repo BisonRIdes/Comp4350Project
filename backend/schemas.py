@@ -3,9 +3,9 @@
 from datetime import datetime
 from typing import Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from util.constants import USERNAME_LENGTH
+from util.constants import STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
@@ -115,6 +115,16 @@ class CreateUserRequest(BaseModel):
     email: str = Field(max_length=255, pattern=EMAIL_REGEX)
     password: str = Field(min_length=8)
     is_driver: bool = False
+
+    @field_validator("email")
+    @classmethod
+    def must_be_student_email(cls, email: str) -> str:
+        # Compare the whole domain so lookalikes like "x@evil-myumanitoba.ca" are rejected.
+        # Lowercase it so the same student can't sign up twice with different capitals.
+        email = email.lower()
+        if email.rsplit("@", 1)[1] != STUDENT_EMAIL_DOMAIN:
+            raise ValueError(f"Use your @{STUDENT_EMAIL_DOMAIN} student email")
+        return email
 
 
 class UserResponse(BaseModel):

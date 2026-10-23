@@ -1,6 +1,7 @@
 import os
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from main import app
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
-BODY = {"username": "alice", "email": "alice@example.com", "password": "password123"}
+BODY = {"username": "alice", "email": "alice@myumanitoba.ca", "password": "password123"}
 
 
 def test_create_account() -> None:
@@ -52,3 +53,34 @@ def test_create_account_validation():
     response = client.post("/users", json={**BODY, "password": "short"})
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "email",
+    [
+        "alice@gmail.com",
+        "alice@umanitoba.ca",
+        "alice@evil-myumanitoba.ca",
+        "alice@myumanitoba.ca.evil.com",
+    ],
+)
+def test_create_account_rejects_non_student_email(email):
+    response = client.post("/users", json={**BODY, "email": email})
+
+    assert response.status_code == 422
+
+
+def test_create_account_lowercases_email():
+    response = client.post("/users", json={**BODY, "email": "Alice@MyUManitoba.ca"})
+
+    assert response.status_code == 201
+    assert response.json()["email"] == "alice@myumanitoba.ca"
+
+
+def test_create_account_duplicate_email_any_case():
+    client.post("/users", json=BODY)
+    response = client.post(
+        "/users", json={**BODY, "username": "bob", "email": "ALICE@myumanitoba.ca"}
+    )
+
+    assert response.status_code == 409
