@@ -35,7 +35,7 @@ class Ride(Base):
     # JSON type for GeoJSON data.
     # JSON works with both SQLite and PSQL, but swapping to JSONB would be faster for psql.
     origin_point: Mapped[dict] = mapped_column(JSON)
-    departure_time: Mapped[datetime] = mapped_column(DateTime)
+    departure_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     seats: Mapped[int] = mapped_column(default=1)
 
 

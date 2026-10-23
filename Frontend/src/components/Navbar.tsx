@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { getUser, logout } from '../lib/auth'
 import { navLinks } from './navLinks'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
+  const [user, setUser] = useState(getUser)
+
+  function signOut() {
+    logout()
+    setUser(null)
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -30,14 +37,20 @@ export function Navbar() {
           ))}
         </div>
         <div className="flex items-center gap-5 text-[13px]">
-          <Link to="/login" className="text-subtle transition-colors duration-300 hover:text-ink">
-            Log in
-          </Link>
+          {user ? (
+            <button type="button" onClick={signOut} className="text-subtle transition-colors duration-300 hover:text-ink">
+              Log out
+            </button>
+          ) : (
+            <Link to="/login" className="text-subtle transition-colors duration-300 hover:text-ink">
+              Log in
+            </Link>
+          )}
           <Link
-            to="/signup"
+            to={user ? '/dashboard' : '/signup'}
             className="rounded-full bg-ink px-4 py-1.5 font-medium text-white transition duration-300 ease-smooth hover:bg-black active:scale-[0.97]"
           >
-            Sign up
+            {user ? 'Dashboard' : 'Sign up'}
           </Link>
         </div>
       </nav>
