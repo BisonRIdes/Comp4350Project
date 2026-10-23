@@ -7,7 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from main import app
-from util.tokens import read_token
+from tests.helpers import auth, make_user
+from util.tokens import create_token, read_token
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 BODY = {"username": "alice", "email": "alice@myumanitoba.ca", "password": "password123"}
@@ -97,3 +98,43 @@ def test_create_account_duplicate_email_any_case():
     )
 
     assert response.status_code == 409
+
+
+# current user
+
+
+async def test_me():
+    user_id = await make_user("alice", True)
+
+    response = client.get("/users/me", headers=auth(user_id))
+
+    assert response.status_code == 200
+    assert response.json()["id"] == user_id
+    assert response.json()["is_driver"] is True
+
+
+async def test_me_not_logged_in():
+    response = client.get("/users/me")
+
+    assert response.status_code == 401
+
+
+async def test_me_bad_token():
+    response = client.get("/users/me", headers={"Authorization": "Bearer not-a-token"})
+
+    assert response.status_code == 401
+
+
+async def test_me_verification_link_is_not_a_login():
+    user_id = await make_user("alice")
+    token = create_token(user_id, "verify", 1)
+
+    response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+
+
+async def test_me_deleted_user():
+    response = client.get("/users/me", headers=auth("gone"))
+
+    assert response.status_code == 401

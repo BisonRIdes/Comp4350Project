@@ -10,6 +10,7 @@ from database import SessionLocal
 from main import app
 from models import Ride, RideRegistration, RideRequest, User
 from util.security import hash_password
+from util.tokens import create_token
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
@@ -18,6 +19,11 @@ POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
 
 def new_id() -> str:
     return str(uuid4())
+
+
+def auth(user_id: str) -> dict[str, str]:
+    """Headers that log a request in as this user."""
+    return {"Authorization": f"Bearer {create_token(user_id, 'access', 1)}"}
 
 
 async def make_user(
