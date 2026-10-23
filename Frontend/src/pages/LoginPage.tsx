@@ -73,11 +73,13 @@ export default function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             error={errors.password}
           />
+          {/* Hidden until a password reset flow exists.
           <div className="mt-2 text-right">
             <a href="#" className="text-[13px] text-subtle transition-colors duration-300 hover:text-ink">
               Forgot password?
             </a>
           </div>
+          */}
         </div>
         <button type="submit" className={`${primaryButton} w-full`}>
           Log in
