@@ -9,6 +9,7 @@
 | Code quality | [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project) |
 | API spec | [`documents/openapi.yaml`](../documents/openapi.yaml) |
 | Live API docs | https://bisonrides-api.onrender.com/docs |
+| Live app | [bisonrides.vercel.app](https://bisonrides.vercel.app) |
 | Architecture | [Architecture Diagram](../documents/ArchitectureDiagram.png) |
 | Backend setup | [`backend/README.md`](../backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
@@ -37,7 +38,7 @@ The detailed record of completed work is on the sprint board and in the closed i
 - Most tests call each endpoint through the full backend (routing, validation, API key and login token, ORM) against a real SQLite test database. Each test gets a fresh database from an autouse fixture in [`backend/tests/conftest.py`](../backend/tests/conftest.py), and that fixture refuses to run against any database URL without "test" in it.
 - Smaller tests cover the Pydantic schemas, the SQLAlchemy models and the login token helpers directly.
 - Test settings come from [`backend/.env.test`](../backend/.env.test). Shared helpers for seeding users, rides and requests are in [`backend/tests/helpers.py`](../backend/tests/helpers.py).
-- Mocking uses Python's built in `unittest.mock` (`AsyncMock`, `MagicMock`) and pytest's `monkeypatch`. The only outside service so far is Resend, so the email sender and its HTTP call are mocked. An autouse fixture also removes `RESEND_API_KEY`, so tests never send a real email.
+- Mocking uses Python's built in `unittest.mock` (`AsyncMock`, `MagicMock`) and pytest's `monkeypatch`. The only outside service so far is Resend, so the email sender and its HTTP call are mocked.  Some tests also mock the database session to force failures that are hard to trigger with real requests, like two people signing up with the same email at the same time. An autouse fixture also removes `RESEND_API_KEY`, so tests never send a real email.
 
 **Current state (on `dev`)**
 
@@ -89,7 +90,6 @@ Branch rules: issue branches come off `dev`, and every PR needs two reviews befo
 **Planned next:**
 
 - Frontend tests (unit and component tests) added to the `frontend` job.
-- Automatic frontend deploys to Vercel, with preview URLs on PRs.
 - A deploy path from `main` once we start merging `dev` into `main`.
 - Turn on the SonarCloud quality gate as a required check for merging.
 
@@ -145,7 +145,7 @@ The Sprint 0 diagram is still where we are heading. What we built in Sprint 1 di
 - **Geocoding.** Typed place names are turned into coordinates with OpenStreetMap's Nominatim service, called from the browser. This was not in the Sprint 0 diagram.
 - **Resend.** Only used for account verification emails so far.
 - **Not built yet:** Redis cache, OpenRouteService, Stripe, and the Leaflet map.
-- **Frontend hosting.** Set up for Vercel but not deployed yet.
+- **Frontend hosting.** Deployed on Vercel as planned: [bisonrides.vercel.app](https://bisonrides.vercel.app).
 
 ## Deployment
 
@@ -153,7 +153,7 @@ The Sprint 0 diagram is still where we are heading. What we built in Sprint 1 di
 | --- | --- |
 | Backend | Live on Render: https://bisonrides-api.onrender.com (open [`/docs`](https://bisonrides-api.onrender.com/docs), other routes need the API key) |
 | Database | Supabase Postgres, connected through the session pooler |
-| Frontend | Not deployed yet. Set up for Vercel ([`Frontend/vercel.json`](../Frontend/vercel.json), [`Frontend/api/proxy.ts`](../Frontend/api/proxy.ts)). Runs locally on `http://localhost:5173`. |
+| Frontend | Live on Vercel: [bisonrides.vercel.app](https://bisonrides.vercel.app) (config in [`Frontend/vercel.json`](../Frontend/vercel.json), API proxy in [`Frontend/api/proxy.ts`](../Frontend/api/proxy.ts)). Runs locally on `http://localhost:5173`. |
 
 Setup and run docs:
 
@@ -174,15 +174,16 @@ Note: Render's free tier sleeps when idle, so the first request can take up to a
 
 **What is one commit, pull request, feature, or technical decision your team is particularly proud of, and why?**
 
-- One technical decision we’re proud of is building our backend endpoints with unit tests written alongside them. Because we tested each endpoint as we built it, we caught bugs early and could make changes without worrying about breaking existing functionality. This gives us a solid foundation for Sprint 2, when more features will depend on these endpoints.
+- One technical decision we're proud of is writing tests alongside each backend endpoint as we built it. Every endpoint has integration tests that send real requests through FastAPI's `TestClient` to a test database, and where a case is hard to trigger with real requests we added unit tests that isolate the logic (for example, mocking the database to simulate two users signing up at the same time and checking that the API returns a 409 and rolls back). Because we tested each endpoint as we built it, we caught bugs early and could change code without worrying about breaking existing functionality. This gives us a solid foundation for Sprint 2, when more features will depend on these endpoints.
 
 **What is one piece of work that could have been cleaner, easier to integrate, better tested, or otherwise improved, and why?**
 
-- One area that could be improved is our test coverage. We only wrote unit tests this sprint, so we haven’t verified that the frontend and backend work correctly together. In Sprint 2, we plan to add integration and end-to-end tests for our main workflows so problems between components are caught before merging.
+- One area that could be improved is testing across the frontend–backend boundary. Our backend tests check each endpoint in isolation, but nothing automatically checks that the frontend sends requests in the shape the backend expects. That's where our integration problems showed up this sprint: for example, the ride form first sent its start location in a format the API rejected, and it sends fields the backend currently ignores. The frontend also has no automated tests yet. In Sprint 2, we plan to add frontend tests for our core logic and end-to-end tests for our main workflows (such as posting a ride and seeing it on the dashboard), so problems between components are caught before merging.
 
 **How did testing fit into your workflow?**
 
-- Our unit tests were written alongside the backend, during implementation rather than before or after. This helped in two ways: it saved time, which was limited because of everyone’s busy schedules, and it let us confirm as we went that new code wasn’t breaking existing functionality. This sprint we focused only on unit tests, since our main goal was to build robust backend endpoints that would give the project a strong foundation. Integration tests will come in later sprints, once more services need to communicate with each other. A more test-driven approach would likely have made this sprint harder in the short term. Our endpoints and data models were still changing as we figured out the design, so tests written first would have needed frequent rewrites, and that would have cost time we didn’t have. As our APIs become more stable, we could try writing tests first for new features in the next sprint.
+- Our tests were written alongside the backend, during implementation rather than before or after. This helped in two ways: it saved time, which was limited because of everyone's busy schedules, and it let us confirm as we went that new code wasn't breaking existing functionality. Unit tests and integration tests were written together where needed: the integration tests covered the normal request flow through the API and database, and the unit tests covered edge cases that are hard to trigger with real requests, such as race conditions. We focused on the backend this sprint, since our main goal was to build robust endpoints that would give the project a strong foundation. Frontend and end-to-end tests will come in later sprints, once more of the user flows are connected. A more test-driven approach would likely have made this sprint harder in the short term. Our endpoints and data models were still changing as we figured out the design, so tests written first would have needed frequent rewrites, and that would have cost time we didn't have. However, writing contract tests for the API before building the matching frontend forms would probably have saved time, since several of our bugs were mismatches between what the frontend sent and what the backend expected. As our APIs become more stable, we plan to try writing tests first for new features in the next sprint.
+Unit tests and integration tests were written together where needed:
 
 ## Known Issues
 
