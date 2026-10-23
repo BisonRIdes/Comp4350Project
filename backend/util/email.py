@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import urllib.error
 import urllib.request
 from typing import Final
 
@@ -15,6 +16,9 @@ from util.constants import VERIFY_TOKEN_HOURS
 
 RESEND_URL: Final = "https://api.resend.com/emails"
 EMAIL_TIMEOUT_SECONDS: Final = 10
+# Resend's firewall (Cloudflare) blocks urllib's default "Python-urllib" User-Agent with a 403
+# (error code 1010) before the request reaches Resend, so we name ourselves instead.
+USER_AGENT: Final = "bisonrides-api/1.0"
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +27,11 @@ def _post_to_resend(api_key: str, message: dict) -> None:
     request = urllib.request.Request(
         RESEND_URL,
         data=json.dumps(message).encode(),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        },
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=EMAIL_TIMEOUT_SECONDS):
@@ -53,6 +61,10 @@ async def send_verification_email(to: str, token: str) -> None:
     }
     try:
         await asyncio.to_thread(_post_to_resend, api_key, message)
+    except urllib.error.HTTPError as error:
+        # Resend says what's wrong in the body (e.g. an unverified sender), so log that too.
+        detail = error.read()[:300].decode(errors="replace")
+        logger.error("Could not send verification email to %s: %s %s", to, error, detail)
     except OSError as error:
         # URLError, HTTP errors, timeouts and dropped connections are all OSErrors.
         logger.error("Could not send verification email to %s: %s", to, error)

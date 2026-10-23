@@ -1,10 +1,11 @@
+import io
 import json
 import logging
 import urllib.error
 import urllib.request
 from unittest.mock import MagicMock
 
-from util.email import RESEND_URL, send_verification_email
+from util.email import RESEND_URL, USER_AGENT, send_verification_email
 
 
 def fake_urlopen(sent: list):
@@ -40,6 +41,8 @@ async def test_with_api_key_the_email_goes_to_resend(monkeypatch):
     message = json.loads(request.data)
     assert request.full_url == RESEND_URL
     assert request.get_header("Authorization") == "Bearer re_test"
+    # without it Resend's firewall rejects the request (see USER_AGENT)
+    assert request.get_header("User-agent") == USER_AGENT
     assert message["to"] == ["alice@myumanitoba.ca"]
     assert "https://bisonrides.vercel.app/verify?token=abc" in message["text"]
 
@@ -55,3 +58,18 @@ async def test_a_failed_email_is_logged_not_raised(monkeypatch, caplog):
         await send_verification_email("alice@myumanitoba.ca", "abc")
 
     assert "Could not send verification email" in caplog.text
+
+
+async def test_a_rejected_email_logs_resends_reason(monkeypatch, caplog):
+    def rejecting_urlopen(request, timeout):
+        body = io.BytesIO(b'{"message":"The bisonrides.me domain is not verified"}')
+        raise urllib.error.HTTPError(RESEND_URL, 403, "Forbidden", {}, body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", rejecting_urlopen)
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+
+    with caplog.at_level(logging.ERROR):
+        await send_verification_email("alice@myumanitoba.ca", "abc")
+
+    assert "403" in caplog.text
+    assert "domain is not verified" in caplog.text
