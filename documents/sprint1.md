@@ -137,7 +137,7 @@ Note: Render's free tier sleeps when idle, so the first request can take up to a
 
 **What is one piece of work that could have been cleaner, easier to integrate, better tested, or otherwise improved, and why?**
 
-- One area that could be improved is our test coverage. We only wrote unit tests this sprint, so we haven’t verified that the frontend and backend work correctly together. In Sprint 2, we plan to add integration tests for our main workflows so problems between components are caught before merging.
+- One area that could be improved is our test coverage. We only wrote unit tests this sprint, so we haven’t verified that the frontend and backend work correctly together. In Sprint 2, we plan to add integration and end-to-end tests for our main workflows so problems between components are caught before merging.
 
 **How did testing fit into your workflow?**
 
