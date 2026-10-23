@@ -48,9 +48,8 @@ class RideOut(BaseModel):
 
 
 class CreateRideBody(BaseModel):
-    """Request body for posting a ride."""
+    """Request body for posting a ride. The driver is whoever is logged in."""
 
-    driver_id: str  # TODO: take the driver from the logged-in user instead of the request body
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int = Field(default=1, ge=1)
