@@ -1,35 +1,10 @@
-import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { RideCard, type Ride } from '../components/RideCard'
 import { headingClass } from '../styles'
-
-const API_URL = import.meta.env.API_KEY ?? 'http://localhost:8000'
-
-// What GET /rides returns (RideOut). The optional fields aren't stored by the backend yet;
-// they show up on the card automatically once RideOut includes them.
-type RideOut = {
-  id: string | number
-  driver_id: string | number
-  departure_time: string
-  seats: number
-  origin_label?: string
-  destination_label?: string
-  price_cents?: number
-}
-
-function toRide(raw: RideOut): Ride {
-  return {
-    id: String(raw.id),
-    from: raw.origin_label,
-    to: raw.destination_label,
-    departure: raw.departure_time,
-    price: raw.price_cents === undefined ? undefined : raw.price_cents / 100,
-    // RideOut has no count of accepted riders yet, so this is the total seats offered.
-    seatsLeft: raw.seats,
-  }
-}
+import { useRides } from '../hooks/useRides'
 
 type Search = { from: string; to: string; departure: string }
 const emptySearch: Search = { from: '', to: '', departure: '' }
@@ -68,29 +43,9 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 }
 
 export default function DashboardPage() {
-  const [allRides, setAllRides] = useState<Ride[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
+  const { rides: allRides, loading, error: loadError } = useRides()
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
-
-  useEffect(() => {
-    async function loadRides() {
-      try {
-        const response = await fetch(`${API_URL}/rides`)
-        if (!response.ok) throw new Error(`Status ${response.status}`)
-        const data: RideOut[] = await response.json()
-        // The backend returns every ride; only show ones that haven't left yet.
-        const now = Date.now()
-        setAllRides(data.map(toRide).filter((ride) => new Date(ride.departure).getTime() > now))
-      } catch {
-        setLoadError("Couldn't load rides. Check that the server is running and try again.")
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadRides()
-  }, [])
 
   const rides = activeSearch ? allRides.filter((ride) => matchesSearch(ride, activeSearch)) : allRides
 

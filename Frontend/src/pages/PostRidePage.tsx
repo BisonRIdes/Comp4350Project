@@ -3,19 +3,33 @@ import { useNavigate } from 'react-router'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
-import { LocationFields } from '../components/LocationFields'
 import { TextField } from '../components/TextField'
 import { headingClass, primaryButton } from '../styles'
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+import { apiFetch } from '../lib/api'
+import { geocode } from '../lib/geocode'
+import { DESTINATION } from '../lib/rides'
 
 // TODO: use the logged-in user's id once login is connected.
-const DRIVER_ID = 1
+// For now, paste the id of a user in your users table who has is_driver = true.
+const DRIVER_ID = '78c07353-9320-4d14-b935-38cafb5a7b07'
+
+
+// FastAPI errors come back as { detail: "text" } or, for validation (422), a list of problems.
+async function readError(response: Response) {
+  try {
+    const { detail } = await response.json()
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail) && detail[0]?.msg) return `${detail[0].loc?.slice(1).join('.')}: ${detail[0].msg}`
+  } catch {
+    // No JSON body.
+  }
+  return `Something went wrong (${response.status}). Please try again.`
+}
 
 const minSeats = 1
-const maxSeats = 8
+const maxSeats = 8 // big enough for a minivan; raise it if needed
 
-type Errors = { from?: string; to?: string; departure?: string; price?: string }
+type Errors = { from?: string; departure?: string; price?: string }
 
 // <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm" in local time.
 function toLocalInputValue(date: Date) {
@@ -60,9 +74,8 @@ function SeatStepper({ value, onChange }: { value: number; onChange: (seats: num
 export default function PostRidePage() {
   const navigate = useNavigate()
   const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
   const [departure, setDeparture] = useState('')
-  const [seats, setSeats] = useState(1)
+  const [seats, setSeats] = useState(3)
   const [price, setPrice] = useState('')
   const [errors, setErrors] = useState<Errors>({})
   const [submitting, setSubmitting] = useState(false)
@@ -74,8 +87,6 @@ export default function PostRidePage() {
     event.preventDefault()
     const nextErrors: Errors = {}
     if (!from.trim()) nextErrors.from = 'Enter where you are leaving from.'
-    if (!to.trim()) nextErrors.to = 'Enter where you are going.'
-    else if (from.trim().toLowerCase() === to.trim().toLowerCase()) nextErrors.to = 'Your destination is the same as your start.'
     if (!departure) nextErrors.departure = 'Choose when you are leaving.'
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     const priceValue = Number(price)
@@ -86,15 +97,24 @@ export default function PostRidePage() {
     setSubmitting(true)
     setNotice('')
     try {
-      const response = await fetch(`${API_URL}/rides`, {
+      // Turn the typed starting point into coordinates for origin_point.
+      const coordinates = await geocode(from.trim())
+      if (!coordinates) {
+        setErrors({ from: 'We couldn\'t find that place in Manitoba. Try adding the town, e.g. "Main St, Steinbach".' })
+        return
+      }
+
+      const response = await apiFetch('/rides', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Fields create_ride reads today:
           driver_id: DRIVER_ID,
-          origin_label: from.trim(),
-          destination_label: to.trim(),
+          origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
+          // Not saved by the backend yet; ignored until CreateRideBody has them:
+          origin_label: from.trim(),
+          destination_label: DESTINATION,
           price_cents: Math.round(priceValue * 100),
         }),
       })
@@ -103,7 +123,7 @@ export default function PostRidePage() {
         return
       }
       if (!response.ok) {
-        setNotice('Something went wrong posting your ride. Please try again.')
+        setNotice(await readError(response))
         return
       }
       navigate('/dashboard')
@@ -125,20 +145,23 @@ export default function PostRidePage() {
         <p className="mt-3 text-lg text-subtle">Share your trip and split the cost of gas.</p>
 
         <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
-          <LocationFields
-            from={from}
-            to={to}
-            onFromChange={(value) => {
-              setFrom(value)
-              clearError('from')
-            }}
-            onToChange={(value) => {
-              setTo(value)
-              clearError('to')
-            }}
-            fromError={errors.from}
-            toError={errors.to}
-          />
+          <div className="space-y-4">
+            <TextField
+              label="Leaving from"
+              name="from"
+              placeholder="Address, town or landmark"
+              value={from}
+              onChange={(event) => {
+                setFrom(event.target.value)
+                clearError('from')
+              }}
+              error={errors.from}
+            />
+            <div>
+              <span className="mb-2 block text-sm font-medium text-ink">Going to</span>
+              <p className="rounded-2xl bg-mist px-4 py-3.5 text-[15px] text-subtle">{DESTINATION}</p>
+            </div>
+          </div>
 
           <TextField
             label="Departure time"
