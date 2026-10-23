@@ -18,7 +18,7 @@
 
 ## Vision Statement
 
-Our vision statement can be found [here](sprint0.md#product-vision).
+Our vision statement can be found [here](sprint0.md##product-vision).
 
 ## Working Agreement
 
