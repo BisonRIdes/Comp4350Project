@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import { Icon } from './Icon'
 import { icons } from './icons'
+import { getUser, logout } from '../lib/auth'
 
 const appLinks = [
   { to: '/post-ride', label: 'Post Ride' },
@@ -14,6 +15,7 @@ export function DashboardNavbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const user = getUser()
 
   // Close the profile menu on an outside click or Escape.
   useEffect(() => {
@@ -33,7 +35,7 @@ export function DashboardNavbar() {
   }, [menuOpen])
 
   function signOut() {
-    // TODO: call POST /auth/logout and clear the stored session once auth is implemented.
+    logout()
     setMenuOpen(false)
     navigate('/login')
   }
@@ -77,8 +79,14 @@ export function DashboardNavbar() {
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-44 overflow-hidden rounded-2xl bg-white p-1.5 text-sm shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
+                className="absolute right-0 mt-2 w-52 overflow-hidden rounded-2xl bg-white p-1.5 text-sm shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
               >
+                {user && (
+                  <div className="mb-1 border-b border-black/5 px-3 pb-2.5 pt-2">
+                    <p className="text-xs text-subtle">Signed in as</p>
+                    <p className="truncate font-medium text-ink">{user.username}</p>
+                  </div>
+                )}
                 <Link
                   to="/profile"
                   role="menuitem"

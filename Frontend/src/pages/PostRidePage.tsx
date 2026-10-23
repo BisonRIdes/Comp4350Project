@@ -1,30 +1,14 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { TextField } from '../components/TextField'
 import { headingClass, primaryButton } from '../styles'
-import { apiFetch } from '../lib/api'
+import { apiFetch, readError } from '../lib/api'
+import { getUser } from '../lib/auth'
 import { geocode } from '../lib/geocode'
 import { DESTINATION } from '../lib/rides'
-
-// TODO: use the logged-in user's id once login is connected.
-// For now, paste the id of a user in your users table who has is_driver = true.
-const DRIVER_ID = '78c07353-9320-4d14-b935-38cafb5a7b07'
-
-
-// FastAPI errors come back as { detail: "text" } or, for validation (422), a list of problems.
-async function readError(response: Response) {
-  try {
-    const { detail } = await response.json()
-    if (typeof detail === 'string') return detail
-    if (Array.isArray(detail) && detail[0]?.msg) return `${detail[0].loc?.slice(1).join('.')}: ${detail[0].msg}`
-  } catch {
-    // No JSON body.
-  }
-  return `Something went wrong (${response.status}). Please try again.`
-}
 
 const minSeats = 1
 const maxSeats = 8 // big enough for a minivan; raise it if needed
@@ -73,6 +57,10 @@ function SeatStepper({ value, onChange }: { value: number; onChange: (seats: num
 
 export default function PostRidePage() {
   const navigate = useNavigate()
+  // The route requires a signed-in user (see RequireAuth), so this is only null if storage was cleared mid-visit.
+  const user = getUser()
+  // The datetime picker's earliest choice: now, when the page opened.
+  const [earliestDeparture] = useState(() => toLocalInputValue(new Date()))
   const [from, setFrom] = useState('')
   const [departure, setDeparture] = useState('')
   const [seats, setSeats] = useState(3)
@@ -94,6 +82,11 @@ export default function PostRidePage() {
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
     setSubmitting(true)
     setNotice('')
     try {
@@ -108,7 +101,7 @@ export default function PostRidePage() {
         method: 'POST',
         body: JSON.stringify({
           // Fields create_ride reads today:
-          driver_id: DRIVER_ID,
+          driver_id: user.id,
           origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
@@ -144,79 +137,92 @@ export default function PostRidePage() {
         </h1>
         <p className="mt-3 text-lg text-subtle">Share your trip and split the cost of gas.</p>
 
-        <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
-          <div className="space-y-4">
-            <TextField
-              label="Leaving from"
-              name="from"
-              placeholder="Address, town or landmark"
-              value={from}
-              onChange={(event) => {
-                setFrom(event.target.value)
-                clearError('from')
-              }}
-              error={errors.from}
-            />
-            <div>
-              <span className="mb-2 block text-sm font-medium text-ink">Going to</span>
-              <p className="rounded-2xl bg-mist px-4 py-3.5 text-[15px] text-subtle">{DESTINATION}</p>
-            </div>
+        {user && !user.is_driver ? (
+          <div role="status" className="mt-10 rounded-3xl bg-mist px-6 py-12 text-center">
+            <p className="text-lg font-medium">Posting rides is for drivers.</p>
+            <p className="mx-auto mt-2 max-w-sm text-subtle">
+              You signed up as a rider, so your account can't offer rides. You can still find a ride to campus.
+            </p>
+            <Link to="/dashboard" className={`${primaryButton} mt-6`}>
+              Find a ride
+              <Icon className="h-4 w-4">{icons.arrow}</Icon>
+            </Link>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
+            <div className="space-y-4">
+              <TextField
+                label="Leaving from"
+                name="from"
+                placeholder="Address, town or landmark"
+                value={from}
+                onChange={(event) => {
+                  setFrom(event.target.value)
+                  clearError('from')
+                }}
+                error={errors.from}
+              />
+              <div>
+                <span className="mb-2 block text-sm font-medium text-ink">Going to</span>
+                <p className="rounded-2xl bg-mist px-4 py-3.5 text-[15px] text-subtle">{DESTINATION}</p>
+              </div>
+            </div>
 
-          <TextField
-            label="Departure time"
-            type="datetime-local"
-            name="departure"
-            min={toLocalInputValue(new Date())}
-            value={departure}
-            onChange={(event) => {
-              setDeparture(event.target.value)
-              clearError('departure')
-            }}
-            error={errors.departure}
-          />
-
-          <fieldset>
-            <legend className="mb-2 block text-sm font-medium text-ink">Seats available</legend>
-            <SeatStepper value={seats} onChange={setSeats} />
-            <p className="mt-2 text-[13px] text-subtle">Count only the seats you're offering, not your own.</p>
-          </fieldset>
-
-          <div>
             <TextField
-              label="Price per seat"
-              type="number"
-              name="price"
-              inputMode="decimal"
-              min="0.25"
-              step="0.25"
-              placeholder="5.00"
-              value={price}
+              label="Departure time"
+              type="datetime-local"
+              name="departure"
+              min={earliestDeparture}
+              value={departure}
               onChange={(event) => {
-                setPrice(event.target.value)
-                clearError('price')
+                setDeparture(event.target.value)
+                clearError('departure')
               }}
-              hint="What each rider pays you. Think of it as their share of gas."
-              error={errors.price}
+              error={errors.departure}
             />
-            {Number(price) > 0 && !errors.price && (
-              <p className="mt-2 text-[13px] text-subtle">
-                With all {seats} {seats === 1 ? 'seat' : 'seats'} filled you'd get{' '}
-                <span className="font-medium text-ink tabular-nums">${(Number(price) * seats).toFixed(2)}</span>.
+
+            <fieldset>
+              <legend className="mb-2 block text-sm font-medium text-ink">Seats available</legend>
+              <SeatStepper value={seats} onChange={setSeats} />
+              <p className="mt-2 text-[13px] text-subtle">Count only the seats you're offering, not your own.</p>
+            </fieldset>
+
+            <div>
+              <TextField
+                label="Price per seat"
+                type="number"
+                name="price"
+                inputMode="decimal"
+                min="0.25"
+                step="0.25"
+                placeholder="5.00"
+                value={price}
+                onChange={(event) => {
+                  setPrice(event.target.value)
+                  clearError('price')
+                }}
+                hint="What each rider pays you. Think of it as their share of gas."
+                error={errors.price}
+              />
+              {Number(price) > 0 && !errors.price && (
+                <p className="mt-2 text-[13px] text-subtle">
+                  With all {seats} {seats === 1 ? 'seat' : 'seats'} filled you'd get{' '}
+                  <span className="font-medium text-ink tabular-nums">${(Number(price) * seats).toFixed(2)}</span>.
+                </p>
+              )}
+            </div>
+
+            <button type="submit" disabled={submitting} className={`${primaryButton} w-full disabled:opacity-60`}>
+              {submitting ? 'Posting…' : 'Post ride'}
+              <Icon className="h-4 w-4">{icons.arrow}</Icon>
+            </button>
+            {notice && (
+              <p role="alert" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
+                {notice}
               </p>
             )}
-          </div>
-
-          <button type="submit" disabled={submitting} className={`${primaryButton} w-full disabled:opacity-60`}>
-            {submitting ? 'Posting…' : 'Post ride'}
-            <Icon className="h-4 w-4">{icons.arrow}</Icon>
-          </button>
-          {notice && (
-            <p role="alert" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
-              {notice}
-            </p>
-          )}
-        </form>
+          </form>
+        )}
       </main>
     </div>
   )

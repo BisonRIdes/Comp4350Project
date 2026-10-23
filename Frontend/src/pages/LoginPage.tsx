@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { AuthLayout } from '../components/AuthLayout'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Errors>({})
   const [notice, setNotice] = useState('')
+  // Kept when switching to sign up, so the visitor still returns to the page they wanted.
+  const location = useLocation()
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -37,7 +39,7 @@ export default function LoginPage() {
       footer={
         <>
           New to BisonRides?{' '}
-          <Link to="/signup" className="font-medium text-ink underline-offset-4 hover:underline">
+          <Link to="/signup" state={location.state} className="font-medium text-ink underline-offset-4 hover:underline">
             Create an account
           </Link>
         </>

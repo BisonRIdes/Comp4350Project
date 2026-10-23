@@ -1,9 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { AuthLayout } from '../components/AuthLayout'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
+import type { RedirectState } from '../components/RouteGuards'
 import { TextField } from '../components/TextField'
+import { apiFetch, readError } from '../lib/api'
+import { saveUser, type CurrentUser } from '../lib/auth'
 import { primaryButton } from '../styles'
 
 type Role = 'rider' | 'driver'
@@ -24,13 +27,17 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Errors>({})
   const [notice, setNotice] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const redirectTo = (location.state as RedirectState)?.from ?? '/dashboard'
 
   // Students can both ride and drive (e.g. drive on some days, ride on others), so roles aren't exclusive.
   function toggleRole(role: Role) {
     setSelectedRoles((current) => (current.includes(role) ? current.filter((value) => value !== role) : [...current, role]))
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextErrors: Errors = {}
     if (selectedRoles.length === 0) nextErrors.roles = 'Choose at least one option.'
@@ -38,14 +45,42 @@ export default function SignupPage() {
     if (trimmedUsername.length < usernameLength.min || trimmedUsername.length > usernameLength.max) {
       nextErrors.username = `Use ${usernameLength.min} to ${usernameLength.max} characters.`
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = 'Enter a valid email address.'
+    const trimmedEmail = email.trim()
+    if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) nextErrors.email = 'Enter a valid email address.'
     if (password.length < minPasswordLength) nextErrors.password = `Use at least ${minPasswordLength} characters.`
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    // TODO: call POST /users with { username, email, password, is_driver: selectedRoles.includes('driver') }.
-    // A driver can also request rides, so "both" is stored as is_driver: true.
-    setNotice("Sign up isn't connected to the server yet.")
+    setSubmitting(true)
+    setNotice('')
+    try {
+      const response = await apiFetch('/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: trimmedUsername,
+          email: trimmedEmail,
+          password,
+          // The backend only stores is_driver. A driver can also request rides, so "both" is a driver.
+          is_driver: selectedRoles.includes('driver'),
+        }),
+      })
+      if (response.status === 409) {
+        setNotice('An account with that username or email already exists.')
+        return
+      }
+      if (!response.ok) {
+        setNotice(await readError(response))
+        return
+      }
+      // POST /users returns the new account, so the user is signed in straight away.
+      const user: CurrentUser = await response.json()
+      saveUser(user)
+      navigate(redirectTo, { replace: true })
+    } catch {
+      setNotice("Couldn't reach the server. Check your connection and try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -59,7 +94,7 @@ export default function SignupPage() {
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-ink underline-offset-4 hover:underline">
+          <Link to="/login" state={location.state} className="font-medium text-ink underline-offset-4 hover:underline">
             Log in
           </Link>
         </>
@@ -152,12 +187,12 @@ export default function SignupPage() {
           error={errors.password}
         />
 
-        <button type="submit" className={`${primaryButton} w-full`}>
-          Create account
+        <button type="submit" disabled={submitting} className={`${primaryButton} w-full disabled:opacity-60`}>
+          {submitting ? 'Creating account…' : 'Create account'}
           <Icon className="h-4 w-4">{icons.arrow}</Icon>
         </button>
         {notice && (
-          <p role="status" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
+          <p role="alert" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
             {notice}
           </p>
         )}
