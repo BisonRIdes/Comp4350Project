@@ -136,3 +136,4 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_driver: bool
+    is_verified: bool

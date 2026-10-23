@@ -19,6 +19,7 @@ def test_create_account() -> None:
     data = response.json()
     assert data["username"] == "alice"
     assert data["is_driver"] is False
+    assert data["is_verified"] is False
     assert "password" not in data
     assert "password_hash" not in data
 
