@@ -77,11 +77,6 @@ Render also has `API_KEY` set to its own random key, not the placeholder from `.
 
 Render also needs `JWT_SECRET` (the app won't start without it) and the email variables below. Generate the secret with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it logs everyone out.
 
-The `users` table on Supabase was created before `is_verified` existed, and the app only creates missing tables, it never adds columns. Run this once in the Supabase SQL editor:
-```sql
-ALTER TABLE users ADD COLUMN is_verified boolean NOT NULL DEFAULT false;
-```
-
 ## Accounts and login
 Only University of Manitoba students can use the app:
 
