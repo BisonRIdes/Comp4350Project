@@ -100,8 +100,7 @@ export default function PostRidePage() {
       const response = await apiFetch('/rides', {
         method: 'POST',
         body: JSON.stringify({
-          // Fields create_ride reads today:
-          driver_id: user.id,
+          // Fields create_ride reads today. The driver is whoever is logged in (from the token).
           origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
