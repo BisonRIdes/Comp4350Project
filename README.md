@@ -35,3 +35,7 @@ The coding standards can be found [here](documents/CODING_STANDARDS.md).
 ## Git Standards
 
 The git standards can be found [here](documents/GIT_STANDARDS.md).
+
+## Sprint Documentation
+- [Sprint 0](documents/sprint0.md)
+- [Sprint 1](documents/sprint1.md)
