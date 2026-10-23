@@ -19,15 +19,15 @@ def require_key(key: str | None = Security(header_scheme)):
         raise HTTPException(status_code=401)
 
 
-app = FastAPI(title="BisonRides", dependencies=[Depends(require_key)])
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
+
+
+app = FastAPI(title="BisonRides", dependencies=[Depends(require_key)], lifespan=lifespan)
 
 
 @app.get("/test")
