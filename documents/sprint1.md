@@ -10,7 +10,7 @@
 | Issues | [GitHub Issues](https://github.com/BisonRIdes/Comp4350Project/issues) |
 | CI workflow | [`.github/workflows/ci.yml`](https://github.com/BisonRIdes/Comp4350Project/actions/workflows/ci.yml) |
 | Code quality | [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project) |
-| API spec | [`documents/openapi.yaml`](documents/openapi.yaml) |
+| API spec | [`documents/openapi.yaml`](../documents/openapi.yaml) |
 | Live API docs | https://bisonrides-api.onrender.com/docs |
 | Architecture | [Architecture Diagram](../documents/ArchitectureDiagram.png) |
 | Backend setup | [`backend/README.md`](../backend/README.md) |
