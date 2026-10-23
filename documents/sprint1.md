@@ -155,6 +155,8 @@ The Sprint 0 diagram is still where we are heading. What we built in Sprint 1 di
 | Database | Supabase Postgres, connected through the session pooler |
 | Frontend | Live on Vercel: [bisonrides.vercel.app](https://bisonrides.vercel.app) (config in [`Frontend/vercel.json`](../Frontend/vercel.json), API proxy in [`Frontend/api/proxy.ts`](../Frontend/api/proxy.ts)). Runs locally on `http://localhost:5173`. |
 
+Note: creating a new account on the live app can't be completed on your own yet. The verification link only appears in the Render logs (see Known Issues). Locally, the link is printed in the backend terminal instead (see [`backend/README.md`](../backend/README.md)).
+
 Setup and run docs:
 
 - Backend: [`backend/README.md`](../backend/README.md) covers local setup, running the server, tests and coverage, Docker, environment variables, and how to sign up, verify and log in (including how to get the verification link locally without a real inbox).
@@ -194,6 +196,7 @@ Unit tests and integration tests were written together where needed:
 - **Tests run on SQLite, production runs on Postgres.** Postgres specific behaviour, including any future PostGIS queries, is not covered by tests yet.
 - **No frontend tests yet.** The frontend only gets lint and build checks.
 - **`main` is behind `dev`.** All Sprint 1 work is on `dev`. `main` still holds the Sprint 0 files.
+- **Signing up on the live app needs Render dashboard access.** Verification emails are not delivered to new users yet [Resend can only send to our own verified address until we set up a sending domain], so the verification link is only written to the backend logs. To finish signing up, someone with access to the Render dashboard has to open the service's **Logs**, copy the link and open it (or send it to the user).
 
 ## Incomplete Features
 
