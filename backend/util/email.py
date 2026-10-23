@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import urllib.error
 import urllib.request
 from typing import Final
 
@@ -60,6 +61,10 @@ async def send_verification_email(to: str, token: str) -> None:
     }
     try:
         await asyncio.to_thread(_post_to_resend, api_key, message)
+    except urllib.error.HTTPError as error:
+        # Resend says what's wrong in the body (e.g. an unverified sender), so log that too.
+        detail = error.read()[:300].decode(errors="replace")
+        logger.error("Could not send verification email to %s: %s %s", to, error, detail)
     except OSError as error:
         # URLError, HTTP errors, timeouts and dropped connections are all OSErrors.
         logger.error("Could not send verification email to %s: %s", to, error)

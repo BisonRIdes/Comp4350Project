@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import urllib.error
@@ -57,3 +58,18 @@ async def test_a_failed_email_is_logged_not_raised(monkeypatch, caplog):
         await send_verification_email("alice@myumanitoba.ca", "abc")
 
     assert "Could not send verification email" in caplog.text
+
+
+async def test_a_rejected_email_logs_resends_reason(monkeypatch, caplog):
+    def rejecting_urlopen(request, timeout):
+        body = io.BytesIO(b'{"message":"The bisonrides.me domain is not verified"}')
+        raise urllib.error.HTTPError(RESEND_URL, 403, "Forbidden", {}, body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", rejecting_urlopen)
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+
+    with caplog.at_level(logging.ERROR):
+        await send_verification_email("alice@myumanitoba.ca", "abc")
+
+    assert "403" in caplog.text
+    assert "domain is not verified" in caplog.text
