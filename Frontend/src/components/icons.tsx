@@ -48,4 +48,19 @@ export const icons = {
       <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20" />
     </>
   ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  close: <path d="M6 6l12 12M18 6 6 18" />,
+  star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9L12 3Z" />,
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
+  chevron: <path d="m9 6 6 6-6 6" />,
 }
