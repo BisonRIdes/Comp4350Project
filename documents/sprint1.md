@@ -148,6 +148,7 @@ Note: Render's free tier sleeps when idle, so the first request can take up to a
 - **No real user auth.** `POST /auth/login` is a stub and JWT is not implemented. All clients share one API key, so endpoints do not check that the caller owns the ride or request they are changing.
 - **Deleting a ride with accepted riders.** Currently returns `409 Conflict`. The team has not decided the final rule yet (for example cancel the ride and email riders instead).
 - **Updates feed returns all history.** `GET /updates` returns every accepted or declined request, including ones the rider has already seen. Whether to hide seen updates is still open.
+- **No application logging.** The backend has no logging of its own. On Render, the only output is uvicorn's default request log, so errors and failed requests are hard to trace on the live API. We plan to add logging to the backend.
 - **Tests run on SQLite, production runs on Postgres.** Postgres specific behaviour, including any future PostGIS queries, is not covered by tests yet.
 - **No frontend tests yet.** The frontend only gets lint and build checks
 
