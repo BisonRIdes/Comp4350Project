@@ -1,15 +1,16 @@
 import { Icon } from './Icon'
 import { icons } from './icons'
 
+// Optional fields aren't returned by GET /rides yet; the card hides them when missing.
 export type Ride = {
   id: string
-  from: string
-  to: string
+  from?: string
+  to?: string
   departure: string // ISO date string
-  driver: string
-  rating: number
-  car: string
-  price: number
+  driver?: string
+  rating?: number
+  car?: string
+  price?: number
   seatsLeft: number
 }
 
@@ -19,6 +20,8 @@ const timeFormat = new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '
 // One row in "Available rides": driver | route + time | car | price + seats.
 export function RideCard({ ride }: { ride: Ride }) {
   const departure = new Date(ride.departure)
+  const driver = ride.driver ?? 'Driver'
+  const route = ride.from && ride.to ? `${ride.from} → ${ride.to}` : `Ride on ${dateFormat.format(departure)}`
 
   return (
     <button
@@ -28,33 +31,37 @@ export function RideCard({ ride }: { ride: Ride }) {
     >
       <div className="flex flex-col items-center text-center">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink">
-          {ride.driver.charAt(0)}
+          {driver.charAt(0)}
         </span>
-        <span className="mt-1.5 text-sm font-medium">{ride.driver}</span>
-        <span className="flex items-center gap-1 text-xs text-subtle">
-          <Icon className="h-3 w-3">{icons.star}</Icon>
-          {ride.rating.toFixed(1)}
-        </span>
+        <span className="mt-1.5 text-sm font-medium">{driver}</span>
+        {ride.rating !== undefined && (
+          <span className="flex items-center gap-1 text-xs text-subtle">
+            <Icon className="h-3 w-3">{icons.star}</Icon>
+            {ride.rating.toFixed(1)}
+          </span>
+        )}
       </div>
 
       <div className="min-w-0">
-        <p className="truncate text-[17px] font-semibold tracking-tight">
-          {ride.from} → {ride.to}
-        </p>
+        <p className="truncate text-[17px] font-semibold tracking-tight">{route}</p>
         <p className="mt-0.5 text-sm text-subtle">
           {dateFormat.format(departure)} · {timeFormat.format(departure)}
         </p>
-        <p className="mt-0.5 text-sm text-subtle sm:hidden">{ride.car}</p>
+        {ride.car && <p className="mt-0.5 text-sm text-subtle sm:hidden">{ride.car}</p>}
       </div>
 
       <div className="hidden items-center gap-2 text-sm text-subtle sm:flex">
-        <Icon className="h-4 w-4 shrink-0">{icons.car}</Icon>
-        {ride.car}
+        {ride.car && (
+          <>
+            <Icon className="h-4 w-4 shrink-0">{icons.car}</Icon>
+            {ride.car}
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
         <div className="text-right">
-          <p className="text-lg font-semibold tabular-nums">${ride.price.toFixed(2)}</p>
+          {ride.price !== undefined && <p className="text-lg font-semibold tabular-nums">${ride.price.toFixed(2)}</p>}
           <p className="text-xs text-subtle">
             {ride.seatsLeft} {ride.seatsLeft === 1 ? 'seat' : 'seats'} left
           </p>

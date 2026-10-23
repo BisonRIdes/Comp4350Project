@@ -1,26 +1,42 @@
-import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { RideCard, type Ride } from '../components/RideCard'
 import { headingClass } from '../styles'
 
-// Sample rides so the page has something to show.
-// TODO: replace with GET /rides once the backend endpoint is implemented.
-const hoursFromNow = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString()
+const API_URL = import.meta.env.API_KEY ?? 'http://localhost:8000'
 
-const sampleRides: Ride[] = [
-  { id: '1', from: 'University of Manitoba', to: 'St. Vital', departure: hoursFromNow(3), driver: 'Alex', rating: 5.0, car: 'White Honda Civic', price: 10, seatsLeft: 1 },
-  { id: '2', from: 'Transcona', to: 'University of Manitoba', departure: hoursFromNow(18), driver: 'Jordan', rating: 4.8, car: 'Black Toyota Corolla', price: 4.75, seatsLeft: 2 },
-  { id: '3', from: 'The Maples', to: 'University of Manitoba', departure: hoursFromNow(20), driver: 'Maya', rating: 4.9, car: 'Silver Mazda 3', price: 5, seatsLeft: 3 },
-  { id: '4', from: 'University of Manitoba', to: 'Osborne Village', departure: hoursFromNow(27), driver: 'Sam', rating: 4.7, car: 'Grey Hyundai Elantra', price: 6.5, seatsLeft: 1 },
-]
+// What GET /rides returns (RideOut). The optional fields aren't stored by the backend yet;
+// they show up on the card automatically once RideOut includes them.
+type RideOut = {
+  id: string | number
+  driver_id: string | number
+  departure_time: string
+  seats: number
+  origin_label?: string
+  destination_label?: string
+  price_cents?: number
+}
+
+function toRide(raw: RideOut): Ride {
+  return {
+    id: String(raw.id),
+    from: raw.origin_label,
+    to: raw.destination_label,
+    departure: raw.departure_time,
+    price: raw.price_cents === undefined ? undefined : raw.price_cents / 100,
+    // RideOut has no count of accepted riders yet, so this is the total seats offered.
+    seatsLeft: raw.seats,
+  }
+}
 
 type Search = { from: string; to: string; departure: string }
 const emptySearch: Search = { from: '', to: '', departure: '' }
 
 function matchesSearch(ride: Ride, search: Search) {
-  const contains = (value: string, query: string) => value.toLowerCase().includes(query.trim().toLowerCase())
+  const contains = (value: string | undefined, query: string) =>
+    (value ?? '').toLowerCase().includes(query.trim().toLowerCase())
   if (search.from && !contains(ride.from, search.from)) return false
   if (search.to && !contains(ride.to, search.to)) return false
   if (search.departure) {
@@ -52,10 +68,31 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 }
 
 export default function DashboardPage() {
+  const [allRides, setAllRides] = useState<Ride[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
 
-  const rides = activeSearch ? sampleRides.filter((ride) => matchesSearch(ride, activeSearch)) : sampleRides
+  useEffect(() => {
+    async function loadRides() {
+      try {
+        const response = await fetch(`${API_URL}/rides`)
+        if (!response.ok) throw new Error(`Status ${response.status}`)
+        const data: RideOut[] = await response.json()
+        // The backend returns every ride; only show ones that haven't left yet.
+        const now = Date.now()
+        setAllRides(data.map(toRide).filter((ride) => new Date(ride.departure).getTime() > now))
+      } catch {
+        setLoadError("Couldn't load rides. Check that the server is running and try again.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadRides()
+  }, [])
+
+  const rides = activeSearch ? allRides.filter((ride) => matchesSearch(ride, activeSearch)) : allRides
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -98,7 +135,7 @@ export default function DashboardPage() {
           </div>
           <div className="border-t border-black/10 md:border-l md:border-t-0">
             <SearchField
-              label="Departure"
+              label="Departure (optional)"
               type="datetime-local"
               value={form.departure}
               onChange={(event) => setForm({ ...form, departure: event.target.value })}
@@ -133,7 +170,17 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {rides.length > 0 ? (
+          {loading ? (
+            <ul className="mt-6 space-y-3" aria-label="Loading rides">
+              {[0, 1, 2].map((key) => (
+                <li key={key} className="h-[104px] animate-pulse rounded-3xl bg-mist" />
+              ))}
+            </ul>
+          ) : loadError ? (
+            <p role="alert" className="mt-6 rounded-3xl bg-mist px-6 py-10 text-center text-subtle">
+              {loadError}
+            </p>
+          ) : rides.length > 0 ? (
             <ul className="mt-6 space-y-3">
               {rides.map((ride) => (
                 <li key={ride.id}>
@@ -144,14 +191,18 @@ export default function DashboardPage() {
           ) : (
             <div role="status" className="mt-6 rounded-3xl bg-mist px-6 py-16 text-center">
               <p className="text-lg font-medium">Sorry, there are no rides available.</p>
-              <p className="mt-2 text-subtle">Try a different route or time, or clear your search to see every ride.</p>
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="mt-6 text-sm font-medium text-ink underline-offset-4 hover:underline"
-              >
-                Show all rides
-              </button>
+              {activeSearch && (
+                <>
+                  <p className="mt-2 text-subtle">Try a different route or time, or clear your search to see every ride.</p>
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    className="mt-6 text-sm font-medium text-ink underline-offset-4 hover:underline"
+                  >
+                    Show all rides
+                  </button>
+                </>
+              )}
             </div>
           )}
         </section>
