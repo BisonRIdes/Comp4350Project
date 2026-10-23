@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
+import PostRidePage from './pages/PostRidePage'
 
 // Start each new page at the top instead of keeping the previous scroll position.
 function ScrollToTop() {
@@ -25,6 +26,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/post-ride" element={<PostRidePage />} />
       </Routes>
     </BrowserRouter>
   )
