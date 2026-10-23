@@ -13,8 +13,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 const DRIVER_ID = 1
 
 const minSeats = 1
-const maxSeats = 8 
-const maxPrice = 50
+const maxSeats = 8
 
 type Errors = { from?: string; to?: string; departure?: string; price?: string }
 
@@ -63,7 +62,7 @@ export default function PostRidePage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [departure, setDeparture] = useState('')
-  const [seats, setSeats] = useState(3)
+  const [seats, setSeats] = useState(1)
   const [price, setPrice] = useState('')
   const [errors, setErrors] = useState<Errors>({})
   const [submitting, setSubmitting] = useState(false)
@@ -81,7 +80,6 @@ export default function PostRidePage() {
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     const priceValue = Number(price)
     if (!price || Number.isNaN(priceValue) || priceValue <= 0) nextErrors.price = 'Enter a price per seat.'
-    else if (priceValue > maxPrice) nextErrors.price = `Keep it under $${maxPrice} per seat.`
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -168,7 +166,6 @@ export default function PostRidePage() {
               name="price"
               inputMode="decimal"
               min="0.25"
-              max={maxPrice}
               step="0.25"
               placeholder="5.00"
               value={price}
