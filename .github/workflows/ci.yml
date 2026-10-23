@@ -26,6 +26,14 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
+      # The Docker image installs from requirements.lock (with hashes), so it must match requirements.txt.
+      - name: Check requirements.lock is up to date
+        run: |
+          pip install uv==0.12.24
+          uv pip compile requirements.txt --generate-hashes --no-header --no-annotate \
+            --python-version 3.12 --python-platform linux --quiet -o requirements.lock
+          git diff --exit-code requirements.lock \
+            || { echo "::error::requirements.lock is out of date. See 'Adding a dependency' in backend/README.md."; exit 1; }
       - name: Lint
         run: ruff check .
       - name: Format
@@ -70,8 +78,23 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The same image Render builds from backend/Dockerfile.
+      - name: Build the backend image
+        run: docker build -t bisonrides-api backend
+      # Importing the app fails if the Dockerfile forgot to copy a module.
+      - name: Import the app inside the image
+        run: >-
+          docker run --rm
+          -e API_KEY=ci -e JWT_SECRET=ci-only-secret-that-is-at-least-32-bytes
+          -e DATABASE_URL=sqlite+aiosqlite:///./ci.db
+          bisonrides-api python -c "import main"
+
   deploy-backend:
-    needs: [backend, security]
+    needs: [backend, security, docker]
     # Only pushes to dev deploy; PRs just run the checks. Render's own auto-deploy is off.
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest

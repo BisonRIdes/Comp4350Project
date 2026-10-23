@@ -28,6 +28,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Adding a dependency
+Add or change the pinned version in `requirements.txt`, then regenerate `requirements.lock`, which the Docker image installs from with hash checking:
+```bash
+pip install uv==0.12.24
+uv pip compile requirements.txt --generate-hashes --no-header --no-annotate --python-version 3.12 --python-platform linux --quiet -o requirements.lock
+```
+Commit both files. CI fails if `requirements.lock` doesn't match `requirements.txt`.
+
 ## Run the app
 ```bash
 uvicorn main:app --reload
@@ -68,11 +76,6 @@ Render has `DATABASE_URL` set to the Supabase **Session pooler** connection stri
 Render also has `API_KEY` set to its own random key, not the placeholder from `.env.example`, which is public. Every endpoint except `/docs` needs that key in the `x-key` header, so Render's health check path is `/docs`. To try endpoints on the live API, open `/docs`, click **Authorize** and paste the key.
 
 Render also needs `JWT_SECRET` (the app won't start without it) and the email variables below. Generate the secret with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it logs everyone out.
-
-The `users` table on Supabase was created before `is_verified` existed, and the app only creates missing tables, it never adds columns. Run this once in the Supabase SQL editor:
-```sql
-ALTER TABLE users ADD COLUMN is_verified boolean NOT NULL DEFAULT false;
-```
 
 ## Accounts and login
 Only University of Manitoba students can use the app:
