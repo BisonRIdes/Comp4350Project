@@ -122,7 +122,7 @@ University of Manitoba students.
 
 ## Lightweight Architecture Sketch
 
-![Architecture sketch](documents/ArchitectureDiagram.png)
+![Architecture sketch](../documents/ArchitectureDiagram.png)
 
 ## Additional process or protocol documentation
 

@@ -39,24 +39,24 @@ The detailed record of completed work is on the sprint board and in the closed i
 **Approach**
 
 - Backend tests use `pytest` with `pytest-asyncio` and FastAPI's `TestClient`.
-- Most tests are integration tests. They call each endpoint through the full app (routing, validation, auth header, ORM) against a real SQLite test database. Each test gets a fresh database from an autouse fixture in [`backend/tests/conftest.py`](backend/tests/conftest.py), and that fixture refuses to run against any database URL without "test" in it.
+- Most tests are integration tests. They call each endpoint through the full app (routing, validation, auth header, ORM) against a real SQLite test database. Each test gets a fresh database from an autouse fixture in [`backend/tests/conftest.py`](../backend/tests/conftest.py), and that fixture refuses to run against any database URL without "test" in it.
 - Unit tests cover the Pydantic schemas and the SQLAlchemy models directly.
-- Test settings come from [`backend/.env.test`](backend/.env.test). Shared helpers for seeding users, rides and requests are in [`backend/tests/helpers.py`](backend/tests/helpers.py).
+- Test settings come from [`backend/.env.test`](../backend/.env.test). Shared helpers for seeding users, rides and requests are in [`backend/tests/helpers.py`](../backend/tests/helpers.py).
 - No mocking library is used yet. Nothing in Sprint 1 calls an outside service, so there was nothing to mock. We will need mocks once Resend (email) and routing are added.
 
 **Current state (on `dev`)**
 
 - 52 tests, all passing.
-- 96% line coverage over all backend code except `tests/` (configured in [`backend/.coveragerc`](backend/.coveragerc)).
+- 96% line coverage over all backend code except `tests/` (configured in [`backend/.coveragerc`](../backend/.coveragerc)).
 - All routers (`rides`, `ride_requests`, `updates`, `users`), `models.py` and `schemas.py` are at 100%.
 - The uncovered lines are the Postgres connection string branch in `database.py`, the app lifespan setup in `main.py`, the login stub in `routers/auth.py`, and the password helpers in `util/security.py`, which no endpoint uses yet.
 - The frontend has no tests yet. CI lints it with oxlint and type checks it with `tsc` as part of the build.
 
-Coverage is reported on every CI run and uploaded to [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project). To run the tests locally, see [Run the tests](backend/README.md#run-the-tests).
+Coverage is reported on every CI run and uploaded to [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project). To run the tests locally, see [Run the tests](../backend/README.md#run-the-tests).
 
 ## CI Status
 
-Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+Workflow: [`.github/workflows/ci.yml`](https://github.com/BisonRIdes/Comp4350Project/actions/workflows/ci.yml)
 
 **Triggers:** every pull request into `dev` or `main`, and every push to `dev` or `main`.
 
@@ -80,7 +80,7 @@ Branch rules: issue branches come off `dev`, and every PR needs two reviews befo
 
 ## API Documentation 
 
-- **Spec (source of truth):** [`documents/openapi.yaml`](documents/openapi.yaml)
+- **Spec (source of truth):** [`documents/openapi.yaml`](../documents/openapi.yaml)
 - **Live interactive docs:** https://bisonrides-api.onrender.com/docs. Click **Authorize** and enter the API key to try endpoints. Ask a team member for the key.
 
 > **Subject to change** remove ask a team member for the key and replace it with proper known sentence
@@ -97,11 +97,11 @@ Endpoints in Sprint 1:
 
 ## Architecture
 
-![Architecture diagram](documents/ArchitectureDiagram.png)
+![Architecture diagram](../documents/ArchitectureDiagram.png)
 
 The diagram is still the Sprint 0 target design. What we actually built in Sprint 1 differs in a few places:
 
-- **CI/CD.** CI runs on PRs and pushes to `dev` and `main`, not only on merge to `main`. Pushes to `dev` deploy the backend. Render builds the image from [`backend/Dockerfile`](backend/Dockerfile), so there is no Docker Hub step.
+- **CI/CD.** CI runs on PRs and pushes to `dev` and `main`, not only on merge to `main`. Pushes to `dev` deploy the backend. Render builds the image from [`backend/Dockerfile`](../backend/Dockerfile), so there is no Docker Hub step.
 - **API.** Endpoints are served from the root (for example `/rides`), not under `/api/v1`. There is no WebSocket connection yet.
 - **Auth.** A shared API key in the `x-key` header, not JWT yet.
 - **Not built yet:** Redis cache, OpenRouteService, Stripe, Resend, and the Leaflet map.
@@ -123,9 +123,9 @@ TODO: decide whether to update the diagram to match these changes or keep it as 
 
 Setup and run docs:
 
-- Backend: [`backend/README.md`](backend/README.md) covers local setup, running the server, tests and coverage, Docker, and environment variables.
-- Deployment notes: [`backend/README.md#deployment`](backend/README.md#deployment) covers the Render setup, the Supabase pooler connection string, and the API key.
-- Frontend: [`Frontend/README.md`](Frontend/README.md)
+- Backend: [`backend/README.md`](../backend/README.md) covers local setup, running the server, tests and coverage, Docker, and environment variables.
+- Deployment notes: [`backend/README.md#deployment`](../backend/README.md#deployment) covers the Render setup, the Supabase pooler connection string, and the API key.
+- Frontend: [`Frontend/README.md`](../Frontend/README.md)
 
 Note: Render's free tier sleeps when idle, so the first request can take up to about a minute.
 
