@@ -147,10 +147,12 @@ async def cancel_ride_request(
         raise HTTPException(status_code=403, detail="User is not authorized to cancel this request")
 
     if ride_request.status == "accepted":
+        # pass both conditions to where(); Python's `and` would silently keep only the first one
+        # and remove every rider from the ride
         await db.execute(
             delete(RideRegistration).where(
-                RideRegistration.ride_id == ride_request.ride_id
-                and RideRegistration.rider_id == ride_request.rider_id
+                RideRegistration.ride_id == ride_request.ride_id,
+                RideRegistration.rider_id == ride_request.rider_id,
             )
         )
 

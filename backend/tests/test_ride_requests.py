@@ -1,11 +1,12 @@
 import os
 
 from fastapi.testclient import TestClient
-from helpers import make_registration, make_ride, make_user
+from helpers import make_registration, make_request, make_ride, make_user
+from sqlalchemy import select
 
 from database import SessionLocal
 from main import app
-from models import Ride
+from models import Ride, RideRegistration
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
@@ -234,6 +235,23 @@ async def test_cancel_ride_request_already_registered():
     response = client.delete(f"/requests/{request_id}/cancel")
 
     assert response.status_code == 204
+
+
+async def test_cancel_accepted_request_keeps_other_riders():
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id, seats=2)
+    rider_id = await make_user("bob", False, "0")
+    other_rider_id = await make_user("charlie", False)
+    await make_registration(ride_id, other_rider_id)
+    request_id = await make_request(ride_id, rider_id, "accepted")
+    await make_registration(ride_id, rider_id)
+
+    response = client.delete(f"/requests/{request_id}/cancel")
+
+    assert response.status_code == 204
+    async with SessionLocal() as db:
+        riders = (await db.scalars(select(RideRegistration.rider_id))).all()
+    assert riders == [other_rider_id]
 
 
 async def test_cancel_ride_request_nonexistent_request():
