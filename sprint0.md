@@ -61,7 +61,7 @@ University of Manitoba students.
 ### 1. Frontend
  
 #### React + TypeScript + Vite
-- **Why:** React has the ecosystem we need (Leaflet bindings, Stripe Elements, WebSocket hooks), and most of the team already knows it. TypeScript catches mismatched API shapes at compile time. This matters because the frontend and backend are built by different people. Vite gives fast dev-server reloads and a simple production build that outputs static files.
+- **Why:** React has the ecosystem we need (Leaflet bindings, Stripe Elements), and most of the team already knows it. TypeScript catches mismatched API shapes at compile time. This matters because the frontend and backend are built by different people. Vite gives fast dev-server reloads and a simple production build that outputs static files.
 #### Leaflet + OpenStreetMap tiles
 - **Why:** Leaflet is open source, lightweight and free. It has no API key and no billing account, and it handles everything we need: markers for drivers and riders, drawing a route line, and live marker movement. OpenStreetMap tiles work with it out of the box.
 - **Alternatives considered:** Google Maps and Mapbox were rejected because they need a billing account or API key and have usage-based pricing.
@@ -71,13 +71,13 @@ University of Manitoba students.
 ### 2. Backend
  
 #### Python + FastAPI
-- **Why:** FastAPI is async-native. That matters for us because the server holds many open WebSocket connections for live locations and also makes outgoing HTTP calls to OpenRouteService, Stripe and Resend. Async lets one process handle all of this without blocking. Pydantic models validate every request automatically. FastAPI also generates OpenAPI/Swagger documentation from the code, which directly meets the course requirement for well-documented interfaces. Python is the language the whole team is strongest in.
+- **Why:** FastAPI is async-native. Async lets one process handle all of this without blocking. Pydantic models validate every request automatically. FastAPI also generates OpenAPI/Swagger documentation from the code, which directly meets the course requirement for well-documented interfaces. Python is the language the whole team is strongest in.
 #### SQLAlchemy (ORM)
 - **Why:** SQLAlchemy is the standard Python ORM. Its models keep database access in one layer, separate from business logic, which meets the course rule that persistence stays separate from application logic. GeoAlchemy2 extends it to PostGIS types. Alembic handles schema migrations so every environment has the same schema.
 #### REST
 - **Why:** Ordinary actions such as signing up, requesting a ride or viewing history are request/response, so they fit REST.
 #### Docker on Render (backend hosting)
-- **Why:** The same Docker image runs on our laptops, in CI and in production, which avoids "works on my machine" problems. Render runs long-lived containers, which our WebSocket connections need. Serverless platforms such as Vercel Functions time out and can't hold persistent sockets. Render also provides managed Redis (Render Key Value) in the same platform.
+- **Why:** The same Docker image runs on our laptops, in CI and in production, which avoids "works on my machine" problems. Render runs long-lived containers. Serverless platforms such as Vercel Functions time out and can't hold persistent sockets. Render also provides managed Redis (Render Key Value) in the same platform.
  
 ### 3. Data
  
@@ -104,7 +104,7 @@ University of Manitoba students.
 ### 5. Authentication
  
 #### JWT (JSON Web Tokens)
-- **Why:** The frontend (Vercel) and API (Render) are on different domains, which makes cookie-based sessions awkward. A JWT sent in the `Authorization` header works across domains. The same token can authenticate the WebSocket connection, so REST and WebSockets share one auth mechanism. JWTs are stateless, so the backend doesn't need a session store. Each token carries the user's role (rider or driver) for permission checks.
+- **Why:** The frontend (Vercel) and API (Render) are on different domains, which makes cookie-based sessions awkward. A JWT sent in the `Authorization` header works across domains. JWTs are stateless, so the backend doesn't need a session store. Each token carries the user's role (rider or driver) for permission checks.
 
 ### 6. CI/CD and code quality
  
