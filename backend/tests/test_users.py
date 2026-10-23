@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from main import app
+from util.tokens import read_token
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 BODY = {"username": "alice", "email": "alice@myumanitoba.ca", "password": "password123"}
@@ -22,6 +23,17 @@ def test_create_account() -> None:
     assert data["is_verified"] is False
     assert "password" not in data
     assert "password_hash" not in data
+
+
+def test_create_account_emails_a_verification_link(monkeypatch) -> None:
+    send = AsyncMock()
+    monkeypatch.setattr("routers.users.send_verification_email", send)
+
+    response = client.post("/users", json=BODY)
+
+    email, token = send.await_args.args
+    assert email == "alice@myumanitoba.ca"
+    assert read_token(token, "verify") == response.json()["id"]
 
 
 def test_create_account_duplicate() -> None:

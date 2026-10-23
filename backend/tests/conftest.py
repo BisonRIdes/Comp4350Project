@@ -6,9 +6,16 @@ from dotenv import load_dotenv
 # must preceed the database import as it loads the env vars
 load_dotenv(Path(__file__).parent.parent / ".env.test", override=True)
 
+import pytest
 import pytest_asyncio
 
 from database import Base, engine
+
+
+@pytest.fixture(autouse=True)
+def no_real_emails(monkeypatch):
+    # tests must never email real students, even if RESEND_API_KEY is set on your machine
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
 
 
 @pytest_asyncio.fixture(autouse=True)
