@@ -74,8 +74,8 @@ University of Manitoba students.
 - **Why:** FastAPI is async-native. That matters for us because the server holds many open WebSocket connections for live locations and also makes outgoing HTTP calls to OpenRouteService, Stripe and Resend. Async lets one process handle all of this without blocking. Pydantic models validate every request automatically. FastAPI also generates OpenAPI/Swagger documentation from the code, which directly meets the course requirement for well-documented interfaces. Python is the language the whole team is strongest in.
 #### SQLAlchemy (ORM)
 - **Why:** SQLAlchemy is the standard Python ORM. Its models keep database access in one layer, separate from business logic, which meets the course rule that persistence stays separate from application logic. GeoAlchemy2 extends it to PostGIS types. Alembic handles schema migrations so every environment has the same schema.
-#### REST (`/api/v1`) + WebSockets (WSS)
-- **Why:** Ordinary actions such as signing up, requesting a ride or viewing history are request/response, so they fit REST. Versioning under `/api/v1` lets us change the API later without breaking the deployed frontend. Live driver locations and ride-status changes need the server to push updates to the client, so they go over WebSockets, encrypted as WSS.
+#### REST
+- **Why:** Ordinary actions such as signing up, requesting a ride or viewing history are request/response, so they fit REST.
 #### Docker on Render (backend hosting)
 - **Why:** The same Docker image runs on our laptops, in CI and in production, which avoids "works on my machine" problems. Render runs long-lived containers, which our WebSocket connections need. Serverless platforms such as Vercel Functions time out and can't hold persistent sockets. Render also provides managed Redis (Render Key Value) in the same platform.
  
