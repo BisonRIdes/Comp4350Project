@@ -49,7 +49,7 @@ const benefits = [
 ]
 
 const steps = [
-  { title: 'Sign up', text: 'Create an account as a rider or a driver.' },
+  { title: 'Sign up', text: 'Create an account as a rider, a driver, or both.' },
   { title: 'Post or find a ride', text: 'Drivers post their routes. Riders search or post a request.' },
   { title: 'Ride together', text: 'Confirm the details, split the cost, and head to campus.' },
 ]
@@ -328,15 +328,11 @@ export default function HomePage() {
               <p className="mx-auto mt-6 max-w-md text-lg text-subtle">
                 Join other UM students making the commute cheaper, faster, and a lot less lonely.
               </p>
-              <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+              <div className="mt-10 flex justify-center">
                 <Link to="/signup" className={primaryButton}>
                   Get started
                   <Icon className="h-4 w-4">{icons.arrow}</Icon>
                 </Link>
-                <a href="#how" className={secondaryButton}>
-                  Learn more
-                  <Icon className="h-4 w-4">{icons.chevron}</Icon>
-                </a>
               </div>
               <CarScene
                 cars={[
