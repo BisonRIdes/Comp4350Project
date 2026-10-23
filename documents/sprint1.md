@@ -1,12 +1,9 @@
 # Sprint 1
 
-> **Review notes (remove before final submission):** Each section has its owner in `["name"]` next to the heading. Lines marked **Subject to change** describe work that is not on `dev` yet. If that work is not merged before submission, change those lines to match what is actually on `dev`.
-
 **Quick links**
 
 | What | Where |
 | --- | --- |
-| Sprint board | TODO: add GitHub Projects board link |
 | Issues | [GitHub Issues](https://github.com/BisonRIdes/Comp4350Project/issues) |
 | CI workflow | [`.github/workflows/ci.yml`](https://github.com/BisonRIdes/Comp4350Project/actions/workflows/ci.yml) |
 | Code quality | [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project) |
@@ -16,7 +13,7 @@
 | Backend setup | [`backend/README.md`](../backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
 
-## Sprint Summary
+##Sprint Summary
 
 The main focus of sprint 1 was to implement the core user flow of Bison Rides for both drivers and riders. This core functionality allows both parties to use the application and get meaningful value out of it as a ride sharing app for commuting to campus.
 
@@ -24,11 +21,9 @@ First off, drivers are able to post rides for others to see, with those posts in
 
 If a rider finds a ride that works for them, they are able to create a request to join that ride. Drivers are then able to view these requests and can choose to either accept or decline them, giving them control over who they feel comfortable offering a ride to. Riders can then check the status of their requests to see whether they were accepted or declined. Additionally, if a rider is for some reason able to get to campus on their own, they are able to cancel their request if they so choose. This removes the request from the driver's list so they know they don't have to pick them up, and it also gives the rider flexibility so they're not locked into a ride they don't want anymore.
 
-This full flow works through our backend API, which is live on Render. The frontend has its home, login and signup pages, and the frontend team is connecting these features to the UI as part of this sprint.
+We also added student accounts. Only @myumanitoba.ca emails can sign up, each account is verified through a link sent by email, and users log in to get a token that the API uses to check who they are.
 
-> **Subject to change:** frontend to API integration is not on `dev` yet. If it is not merged before submission, reword this to say the UI work is still in progress.
-
-Alongside the features, we set up the CI/CD pipeline, automatic backend deployment, and an OpenAPI spec that the frontend and backend teams build against.
+This full flow works through our backend API, which is live on Render. On the frontend, students can sign up, verify their email, log in, see upcoming rides on a dashboard, and post a ride. Pages for the rest of the flow (requesting a ride, accepting or declining, checking status, cancelling, and editing or deleting a ride) are not built yet (see Incomplete Features below). Alongside the features, we set up the CI/CD pipeline, automatic backend deployment, and an OpenAPI spec that the frontend and backend teams build against.
 
 Overall, what we've implemented so far provides both the riders and drivers who use Bison Rides the core functionality of what we envision for our application, as well as providing us the opportunity to evaluate and iterate on the application's core functionality early on in development. This will help us ensure the core user flow feels good and gives us a solid foundation to build upon in future sprints.
 
