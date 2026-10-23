@@ -1,31 +1,69 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { AuthLayout } from '../components/AuthLayout'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
+import { ResendVerification } from '../components/ResendVerification'
+import type { RedirectState } from '../components/RouteGuards'
 import { TextField } from '../components/TextField'
+import { apiFetch, readError } from '../lib/api'
+import { saveSession, type CurrentUser } from '../lib/auth'
 import { primaryButton } from '../styles'
 
-type Errors = { identifier?: string; password?: string }
+type Errors = { email?: string; password?: string }
+type LoginResponse = { access_token: string; user: CurrentUser }
 
 export default function LoginPage() {
-  const [identifier, setIdentifier] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Errors>({})
   const [notice, setNotice] = useState('')
+  // Set when the account exists but its email isn't verified yet, to offer a new link.
+  const [unverifiedEmail, setUnverifiedEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const navigate = useNavigate()
   // Kept when switching to sign up, so the visitor still returns to the page they wanted.
   const location = useLocation()
+  const redirectTo = (location.state as RedirectState)?.from ?? '/dashboard'
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextErrors: Errors = {}
-    if (!identifier.trim()) nextErrors.identifier = 'Enter your email or username.'
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) nextErrors.email = 'Enter your student email.'
     if (!password) nextErrors.password = 'Enter your password.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    // TODO: call POST /auth/login once the backend endpoint is implemented.
-    setNotice("Logging in isn't connected to the server yet.")
+    setSubmitting(true)
+    setNotice('')
+    setUnverifiedEmail('')
+    try {
+      const response = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: trimmedEmail, password }),
+      })
+      if (response.status === 401) {
+        setNotice('Wrong email or password.')
+        return
+      }
+      if (response.status === 403) {
+        setNotice('Verify your email first: open the link we sent to your student email.')
+        setUnverifiedEmail(trimmedEmail)
+        return
+      }
+      if (!response.ok) {
+        setNotice(await readError(response))
+        return
+      }
+      const { access_token, user }: LoginResponse = await response.json()
+      saveSession(access_token, user)
+      navigate(redirectTo, { replace: true })
+    } catch {
+      setNotice("Couldn't reach the server. Check your connection and try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -54,13 +92,14 @@ export default function LoginPage() {
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <TextField
-          label="Email or username"
-          name="identifier"
-          autoComplete="username"
+          label="Student email"
+          type="email"
+          name="email"
+          autoComplete="email"
           placeholder="you@myumanitoba.ca"
-          value={identifier}
-          onChange={(event) => setIdentifier(event.target.value)}
-          error={errors.identifier}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={errors.email}
         />
         <div>
           <TextField
@@ -81,13 +120,19 @@ export default function LoginPage() {
           </div>
           */}
         </div>
-        <button type="submit" className={`${primaryButton} w-full`}>
-          Log in
+        <button type="submit" disabled={submitting} className={`${primaryButton} w-full disabled:opacity-60`}>
+          {submitting ? 'Logging in…' : 'Log in'}
           <Icon className="h-4 w-4">{icons.arrow}</Icon>
         </button>
         {notice && (
           <p role="status" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
             {notice}
+            {unverifiedEmail && (
+              <>
+                {' '}
+                <ResendVerification email={unverifiedEmail} />
+              </>
+            )}
           </p>
         )}
       </form>
