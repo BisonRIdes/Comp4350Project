@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
-from tests.helpers import POINT, client, make_ride, make_user
+from tests.helpers import POINT, auth, client, make_ride, make_user
 
 TIME = "2026-11-01T14:30:00"
 
@@ -12,7 +12,9 @@ TIME = "2026-11-01T14:30:00"
 
 
 async def test_list_rides_empty():
-    response = client.get("/rides")
+    user_id = await make_user("rider")
+
+    response = client.get("/rides", headers=auth(user_id))
 
     assert response.status_code == 200
     assert response.json() == []
@@ -33,11 +35,17 @@ async def test_list_rides_returns_rides_soonest_first():
         )
         await db.commit()
 
-    response = client.get("/rides")
+    response = client.get("/rides", headers=auth(driver_id))
 
     assert response.status_code == 200
     times = [ride["departure_time"] for ride in response.json()]
     assert times == ["2026-11-01T09:00:00", "2026-12-01T09:00:00"]
+
+
+async def test_list_rides_not_logged_in():
+    response = client.get("/rides")
+
+    assert response.status_code == 401
 
 
 # create ride
@@ -48,7 +56,8 @@ async def test_create_ride():
 
     response = client.post(
         "/rides",
-        json={"driver_id": driver_id, "origin_point": POINT, "departure_time": TIME, "seats": 3},
+        json={"origin_point": POINT, "departure_time": TIME, "seats": 3},
+        headers=auth(driver_id),
     )
 
     assert response.status_code == 201
@@ -66,11 +75,26 @@ async def test_create_ride_defaults_to_one_seat():
 
     response = client.post(
         "/rides",
-        json={"driver_id": driver_id, "origin_point": POINT, "departure_time": TIME},
+        json={"origin_point": POINT, "departure_time": TIME},
+        headers=auth(driver_id),
     )
 
     assert response.status_code == 201
     assert response.json()["seats"] == 1
+
+
+async def test_create_ride_ignores_driver_id_in_body():
+    driver_id = await make_user("driver", True)
+    other_driver_id = await make_user("other", True)
+
+    response = client.post(
+        "/rides",
+        json={"driver_id": other_driver_id, "origin_point": POINT, "departure_time": TIME},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["driver_id"] == driver_id
 
 
 async def test_create_ride_not_a_driver():
@@ -78,19 +102,17 @@ async def test_create_ride_not_a_driver():
 
     response = client.post(
         "/rides",
-        json={"driver_id": rider_id, "origin_point": POINT, "departure_time": TIME},
+        json={"origin_point": POINT, "departure_time": TIME},
+        headers=auth(rider_id),
     )
 
     assert response.status_code == 403
 
 
-async def test_create_ride_unknown_user():
-    response = client.post(
-        "/rides",
-        json={"driver_id": "nope", "origin_point": POINT, "departure_time": TIME},
-    )
+async def test_create_ride_not_logged_in():
+    response = client.post("/rides", json={"origin_point": POINT, "departure_time": TIME})
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 async def test_create_ride_invalid_body():
@@ -98,7 +120,8 @@ async def test_create_ride_invalid_body():
 
     response = client.post(
         "/rides",
-        json={"driver_id": driver_id, "origin_point": POINT, "departure_time": TIME, "seats": 0},
+        json={"origin_point": POINT, "departure_time": TIME, "seats": 0},
+        headers=auth(driver_id),
     )
 
     assert response.status_code == 422
@@ -111,7 +134,7 @@ async def test_edit_ride_changes_only_sent_fields():
     driver_id = await make_user("driver", True)
     ride_id = await make_ride(driver_id, seats=2)
 
-    response = client.patch(f"/rides/{ride_id}", json={"seats": 4})
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 4}, headers=auth(driver_id))
 
     assert response.status_code == 200
     body = response.json()
@@ -128,6 +151,7 @@ async def test_edit_ride_changes_point_and_time():
     response = client.patch(
         f"/rides/{ride_id}",
         json={"origin_point": new_point, "departure_time": "2026-11-02T08:00:00"},
+        headers=auth(driver_id),
     )
 
     assert response.status_code == 200
@@ -136,16 +160,30 @@ async def test_edit_ride_changes_point_and_time():
 
 
 async def test_edit_ride_not_found():
-    response = client.patch("/rides/nope", json={"seats": 2})
+    driver_id = await make_user("driver", True)
+
+    response = client.patch("/rides/nope", json={"seats": 2}, headers=auth(driver_id))
 
     assert response.status_code == 404
+
+
+async def test_edit_someone_elses_ride():
+    driver_id = await make_user("driver", True)
+    other_driver_id = await make_user("other", True)
+    ride_id = await make_ride(driver_id, seats=2)
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 4}, headers=auth(other_driver_id))
+
+    assert response.status_code == 403
+    async with SessionLocal() as db:
+        assert (await db.get(Ride, ride_id)).seats == 2
 
 
 async def test_edit_ride_empty_body():
     driver_id = await make_user("driver", True)
     ride_id = await make_ride(driver_id)
 
-    response = client.patch(f"/rides/{ride_id}", json={})
+    response = client.patch(f"/rides/{ride_id}", json={}, headers=auth(driver_id))
 
     assert response.status_code == 422
 
@@ -154,7 +192,7 @@ async def test_edit_ride_negative_seats():
     driver_id = await make_user("driver", True)
     ride_id = await make_ride(driver_id)
 
-    response = client.patch(f"/rides/{ride_id}", json={"seats": -1})
+    response = client.patch(f"/rides/{ride_id}", json={"seats": -1}, headers=auth(driver_id))
 
     assert response.status_code == 422
 
@@ -166,7 +204,7 @@ async def test_delete_ride():
     driver_id = await make_user("driver", True)
     ride_id = await make_ride(driver_id)
 
-    response = client.delete(f"/rides/{ride_id}")
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
 
     assert response.status_code == 204
     async with SessionLocal() as db:
@@ -174,9 +212,23 @@ async def test_delete_ride():
 
 
 async def test_delete_ride_not_found():
-    response = client.delete("/rides/nope")
+    driver_id = await make_user("driver", True)
+
+    response = client.delete("/rides/nope", headers=auth(driver_id))
 
     assert response.status_code == 404
+
+
+async def test_delete_someone_elses_ride():
+    driver_id = await make_user("driver", True)
+    other_driver_id = await make_user("other", True)
+    ride_id = await make_ride(driver_id)
+
+    response = client.delete(f"/rides/{ride_id}", headers=auth(other_driver_id))
+
+    assert response.status_code == 403
+    async with SessionLocal() as db:
+        assert len((await db.scalars(select(Ride))).all()) == 1
 
 
 async def test_delete_ride_with_accepted_rider_is_blocked():
@@ -187,7 +239,7 @@ async def test_delete_ride_with_accepted_rider_is_blocked():
         db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
         await db.commit()
 
-    response = client.delete(f"/rides/{ride_id}")
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
 
     assert response.status_code == 409
     async with SessionLocal() as db:
@@ -202,7 +254,7 @@ async def test_delete_ride_removes_pending_requests():
         db.add(RideRequest(ride_id=ride_id, rider_id=rider_id))
         await db.commit()
 
-    response = client.delete(f"/rides/{ride_id}")
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
 
     assert response.status_code == 204
     async with SessionLocal() as db:

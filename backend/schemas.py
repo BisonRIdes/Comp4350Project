@@ -3,9 +3,9 @@
 from datetime import datetime
 from typing import Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from util.constants import USERNAME_LENGTH
+from util.constants import STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
@@ -48,9 +48,8 @@ class RideOut(BaseModel):
 
 
 class CreateRideBody(BaseModel):
-    """Request body for posting a ride."""
+    """Request body for posting a ride. The driver is whoever is logged in."""
 
-    driver_id: str  # TODO: take the driver from the logged-in user instead of the request body
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int = Field(default=1, ge=1)
@@ -62,18 +61,6 @@ class UpdateRideBody(BaseModel):
     origin_point: GeoJSONPoint | None = None
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
-
-
-class CreateRideRequestBody(BaseModel):
-    """Request body for creating a ride request"""
-
-    rider_id: str  # TODO: take the rider from the logged-in user instead of the request body
-
-
-class RideRequestDecisionBody(BaseModel):
-    """Request body for when driver decides to accept or decline a request"""
-
-    driver_id: str  # TODO: take the rider from the logged-in user instead of the request body
 
 
 class RideRequestOut(BaseModel):
@@ -116,6 +103,28 @@ class CreateUserRequest(BaseModel):
     password: str = Field(min_length=8)
     is_driver: bool = False
 
+    @field_validator("email")
+    @classmethod
+    def must_be_student_email(cls, email: str) -> str:
+        # Compare the whole domain so lookalikes like "x@evil-myumanitoba.ca" are rejected.
+        # Lowercase it so the same student can't sign up twice with different capitals.
+        email = email.lower()
+        if email.rsplit("@", 1)[1] != STUDENT_EMAIL_DOMAIN:
+            raise ValueError(f"Use your @{STUDENT_EMAIL_DOMAIN} student email")
+        return email
+
+
+class VerifyEmailBody(BaseModel):
+    """The token from the link in the verification email."""
+
+    token: str
+
+
+class ResendVerificationBody(BaseModel):
+    """The email to send a new verification link to."""
+
+    email: str
+
 
 class UserResponse(BaseModel):
     """Represents the response model containing a user's public account information."""
@@ -126,3 +135,19 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_driver: bool
+    is_verified: bool
+
+
+class LoginBody(BaseModel):
+    """Email and password for logging in."""
+
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """A login token and the account it belongs to. Send the token as `Authorization: Bearer`."""
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    user: UserResponse

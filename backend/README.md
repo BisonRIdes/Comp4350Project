@@ -67,7 +67,32 @@ Render has `DATABASE_URL` set to the Supabase **Session pooler** connection stri
 
 Render also has `API_KEY` set to its own random key, not the placeholder from `.env.example`, which is public. Every endpoint except `/docs` needs that key in the `x-key` header, so Render's health check path is `/docs`. To try endpoints on the live API, open `/docs`, click **Authorize** and paste the key.
 
+Render also needs `JWT_SECRET` (the app won't start without it) and the email variables below. Generate the secret with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it logs everyone out.
+
+The `users` table on Supabase was created before `is_verified` existed, and the app only creates missing tables, it never adds columns. Run this once in the Supabase SQL editor:
+```sql
+ALTER TABLE users ADD COLUMN is_verified boolean NOT NULL DEFAULT false;
+```
+
+## Accounts and login
+Only University of Manitoba students can use the app:
+
+1. `POST /users` with an `@myumanitoba.ca` email creates an unverified account and emails a verification link.
+2. The link opens the frontend at `/verify?token=...`, which sends the token to `POST /auth/verify`.
+3. `POST /auth/login` with the email and password returns an `access_token`. Send it as `Authorization: Bearer <token>` on every other request. It expires after 24 hours.
+
+`POST /auth/resend-verification` sends a new link if the first one expired. `GET /users/me` returns the logged-in account.
+
+Locally, without `RESEND_API_KEY`, no email is sent: the link is printed in the terminal running `uvicorn`, so you can open it yourself. In `/docs`, click **Authorize** and fill in both the API key and the token from `/auth/login`.
+
 ## Setting up Environment Variables
 For the database setup, either provide a connection string directly through the `DATABASE_URL` environment variable, or set up environment variables for `user`, `password`, `host`, `port`, and `dbname`. `DATABASE_URL` will let you insert either a SQLite or PostgreSQL connection string, while the latter setup is fixed to PostgreSQL with the `asyncpg` drivers.
 
 Set the `API_KEY` header to assign what key all requests to the backend should include.
+
+| Variable | Required | What it's for |
+|---|---|---|
+| `JWT_SECRET` | Yes | Signs login tokens and verification links. Use a long random string and keep it secret. |
+| `RESEND_API_KEY` | On Render | Sends the verification email through [Resend](https://resend.com). Without it, the link is only printed in the logs. |
+| `EMAIL_FROM` | On Render | Sender address, e.g. `BisonRides <noreply@your-domain>`. Resend only delivers to other people's inboxes from a domain you have verified with them. The default `onboarding@resend.dev` only delivers to the Resend account owner's own email. |
+| `FRONTEND_URL` | On Render | Where the verification link points, e.g. `https://bisonrides.vercel.app`. Defaults to `http://localhost:5173`. |

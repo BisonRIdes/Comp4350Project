@@ -14,4 +14,5 @@ async def test_create_user():
     assert user.username == "123"
     assert user.email == "a@b.com"
     assert user.is_driver is True
+    assert user.is_verified is False
     assert user.id

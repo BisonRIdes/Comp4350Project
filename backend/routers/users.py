@@ -5,7 +5,11 @@ from sqlalchemy.exc import IntegrityError
 from database import SessionLocal
 from models import User
 from schemas import CreateUserRequest, UserResponse
+from util.auth import CurrentUser
+from util.constants import VERIFY_TOKEN_HOURS
+from util.email import send_verification_email
 from util.security import hash_password
+from util.tokens import create_token
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -33,4 +37,13 @@ async def create_account(body: CreateUserRequest) -> User:
             # lost a race with a concurrent signup
             await db.rollback()
             raise HTTPException(status_code=409, detail="Username or email already exists")
+
+    # the account can't log in until they click the link we email to their student address
+    await send_verification_email(user.email, create_token(user.id, "verify", VERIFY_TOKEN_HOURS))
+    return user
+
+
+# the logged-in user's own account, e.g. to show their name or check if they drive
+@router.get("/me", response_model=UserResponse)
+async def read_current_user(user: CurrentUser) -> User:
     return user

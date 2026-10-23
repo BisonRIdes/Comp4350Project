@@ -8,8 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models import Ride, RideRegistration, RideRequest, User
 from schemas import CreateRideBody, RideOut, UpdateRideBody
+from util.auth import CurrentUser, get_current_user
 
-router = APIRouter(prefix="/rides", tags=["rides"])
+# every rides route needs a logged-in student
+router = APIRouter(prefix="/rides", tags=["rides"], dependencies=[Depends(get_current_user)])
+
+
+def check_owner(ride: Ride, user: User) -> None:
+    if ride.driver_id != user.id:
+        raise HTTPException(status_code=403, detail="You can only change your own rides")
 
 
 # return a list of all rides for populating the frontend
@@ -21,13 +28,14 @@ async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[R
 
 # driver can post a ride
 @router.post("", status_code=201, response_model=RideOut)
-async def create_ride(body: CreateRideBody, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
-    driver = await db.get(User, body.driver_id)
-    if driver is None or not driver.is_driver:
+async def create_ride(
+    body: CreateRideBody, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> Ride:
+    if not user.is_driver:
         raise HTTPException(status_code=403, detail="User is not a driver")
 
     ride = Ride(
-        driver_id=body.driver_id,
+        driver_id=user.id,
         origin_point=body.origin_point.model_dump(),
         departure_time=body.departure_time,
         seats=body.seats,
@@ -41,11 +49,15 @@ async def create_ride(body: CreateRideBody, db: Annotated[AsyncSession, Depends(
 # driver can edit a ride (partial update)
 @router.patch("/{ride_id}", response_model=RideOut)
 async def edit_ride(
-    ride_id: str, body: UpdateRideBody, db: Annotated[AsyncSession, Depends(get_db)]
+    ride_id: str,
+    body: UpdateRideBody,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Ride:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
+    check_owner(ride, user)
 
     # only the fields the client actually sent
     changes = body.model_dump(exclude_unset=True)
@@ -62,10 +74,13 @@ async def edit_ride(
 
 # driver can delete a ride
 @router.delete("/{ride_id}", status_code=204)
-async def delete_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> None:
+async def delete_ride(
+    ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> None:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
+    check_owner(ride, user)
 
     accepted = await db.scalar(
         select(func.count())

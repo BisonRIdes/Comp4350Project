@@ -1,28 +1,27 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideRequest, User
+from models import Ride, RideRequest
 from schemas import UpdatesOut
+from util.auth import CurrentUser
 
 router = APIRouter(prefix="/updates", tags=["updates"])
 
 
-# get any info needed to display on the page for a given user
+# get any info needed to display on the page for the logged-in user
 @router.get("", response_model=UpdatesOut)
-async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> UpdatesOut:
-    user = await db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
+async def get_updates(
+    user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> UpdatesOut:
     # driver view: pending requests on rides this user is driving
     pending = await db.execute(
         select(RideRequest)
         .join(Ride, Ride.id == RideRequest.ride_id)
-        .where(Ride.driver_id == user_id, RideRequest.status == "pending")
+        .where(Ride.driver_id == user.id, RideRequest.status == "pending")
         .order_by(Ride.departure_time)
     )
 
@@ -31,7 +30,7 @@ async def get_updates(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]
         select(RideRequest)
         .join(Ride, Ride.id == RideRequest.ride_id)
         .where(
-            RideRequest.rider_id == user_id,
+            RideRequest.rider_id == user.id,
             RideRequest.status.in_(["accepted", "declined"]),
         )
         .order_by(Ride.departure_time)

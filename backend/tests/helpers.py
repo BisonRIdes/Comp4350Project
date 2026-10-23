@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from database import SessionLocal
 from main import app
 from models import Ride, RideRegistration, RideRequest, User
+from util.security import hash_password
+from util.tokens import create_token
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
@@ -19,15 +21,28 @@ def new_id() -> str:
     return str(uuid4())
 
 
-async def make_user(name: str, is_driver: bool = False, i: str | None = None) -> str:
+def auth(user_id: str) -> dict[str, str]:
+    """Headers that log a request in as this user."""
+    return {"Authorization": f"Bearer {create_token(user_id, 'access', 1)}"}
+
+
+async def make_user(
+    name: str,
+    is_driver: bool = False,
+    i: str | None = None,
+    verified: bool = False,
+    password: str | None = None,
+) -> str:
     user_id = i or new_id()
     async with SessionLocal() as db:
         user = User(
             id=user_id,
             username=name,
-            email=f"{name}@b.com",
-            password_hash="hash",
+            email=f"{name}@myumanitoba.ca",
+            # hashing is slow on purpose, so only do it for tests that log in
+            password_hash=await hash_password(password) if password else "hash",
             is_driver=is_driver,
+            is_verified=verified,
         )
         db.add(user)
         await db.commit()
