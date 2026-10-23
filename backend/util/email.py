@@ -15,6 +15,9 @@ from util.constants import VERIFY_TOKEN_HOURS
 
 RESEND_URL: Final = "https://api.resend.com/emails"
 EMAIL_TIMEOUT_SECONDS: Final = 10
+# Resend's firewall (Cloudflare) blocks urllib's default "Python-urllib" User-Agent with a 403
+# (error code 1010) before the request reaches Resend, so we name ourselves instead.
+USER_AGENT: Final = "bisonrides-api/1.0"
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,11 @@ def _post_to_resend(api_key: str, message: dict) -> None:
     request = urllib.request.Request(
         RESEND_URL,
         data=json.dumps(message).encode(),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        },
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=EMAIL_TIMEOUT_SECONDS):
