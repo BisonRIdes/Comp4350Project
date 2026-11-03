@@ -43,7 +43,7 @@ export function TextField({ label, hint, error, type = 'text', ...inputProps }: 
         )}
       </div>
       {message && (
-        <p id={messageId} className={`mt-2 text-[13px] ${error ? 'font-medium text-ink' : 'text-subtle'}`}>
+        <p id={messageId} className={`mt-2 text-[13px] ${error ? 'font-medium text-danger' : 'text-subtle'}`}>
           {message}
         </p>
       )}

@@ -17,6 +17,13 @@ const roles: { value: Role; title: string; text: string; icon: ReactNode }[] = [
 ]
 
 const minPasswordLength = 8
+// Same rules as the backend (CreateUserRequest in schemas.py).
+const passwordRules: { pattern: RegExp; name: string }[] = [
+  { pattern: /[A-Z]/, name: 'an uppercase letter' },
+  { pattern: /[a-z]/, name: 'a lowercase letter' },
+  { pattern: /[0-9]/, name: 'a number' },
+  { pattern: /[^A-Za-z0-9]/, name: 'a symbol' },
+]
 const usernameLength = { min: 3, max: 36 }
 // Only University of Manitoba students can sign up (the backend checks this too).
 const studentEmail = /^[^\s@]+@myumanitoba\.ca$/i
@@ -48,8 +55,10 @@ export default function SignupPage() {
     }
     const trimmedEmail = email.trim()
     if (!studentEmail.test(trimmedEmail)) nextErrors.email = 'Use your @myumanitoba.ca student email.'
+    const missing = passwordRules.filter((rule) => !rule.pattern.test(password)).map((rule) => rule.name)
     if (password.length < minPasswordLength) nextErrors.password = `Use at least ${minPasswordLength} characters.`
-    setErrors(nextErrors)
+    else if (missing.length > 0) nextErrors.password = `Add ${missing.join(', ')}.`
+        setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
     setSubmitting(true)
@@ -173,7 +182,7 @@ export default function SignupPage() {
             placeholder="bison_rider"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
-            hint={`${usernameLength.min} to ${usernameLength.max} characters.`}
+            hint={`At least ${minPasswordLength} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`}
             error={errors.username}
           />
           <TextField
