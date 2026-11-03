@@ -212,7 +212,7 @@ export default function SignupPage() {
             <Icon className="h-4 w-4">{icons.arrow}</Icon>
           </button>
           {notice && (
-            <p role="alert" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
+            <p role="alert" className={errorNotice}>
               {notice}
             </p>
           )}
