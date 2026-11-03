@@ -7,7 +7,7 @@ import { ResendVerification } from '../components/ResendVerification'
 import type { RedirectState } from '../components/RouteGuards'
 import { TextField } from '../components/TextField'
 import { apiFetch, readError } from '../lib/api'
-import { saveSession, type CurrentUser } from '../lib/auth'
+import { emailUsername, saveSession, STUDENT_EMAIL_DOMAIN, type CurrentUser } from '../lib/auth'
 import { primaryButton, errorNotice } from '../styles'
 
 type Errors = { email?: string; password?: string }
@@ -29,19 +29,19 @@ export default function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextErrors: Errors = {}
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail) nextErrors.email = 'Enter your student email.'
+    if (!email) nextErrors.email = 'Enter your student email.'
     if (!password) nextErrors.password = 'Enter your password.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
+    const fullEmail = `${email}${STUDENT_EMAIL_DOMAIN}`
     setSubmitting(true)
     setNotice('')
     setUnverifiedEmail('')
     try {
       const response = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify({ email: fullEmail, password }),
       })
       if (response.status === 401) {
         setNotice('Wrong email or password.')
@@ -49,7 +49,7 @@ export default function LoginPage() {
       }
       if (response.status === 403) {
         setNotice('Verify your email first: open the link we sent to your student email.')
-        setUnverifiedEmail(trimmedEmail)
+        setUnverifiedEmail(fullEmail)
         return
       }
       if (!response.ok) {
@@ -93,12 +93,12 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <TextField
           label="Student email"
-          type="email"
           name="email"
           autoComplete="email"
-          placeholder="you@myumanitoba.ca"
+          placeholder="you"
+          suffix={STUDENT_EMAIL_DOMAIN}
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => setEmail(emailUsername(event.target.value))}
           error={errors.email}
         />
         <div>

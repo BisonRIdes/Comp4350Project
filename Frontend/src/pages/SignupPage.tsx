@@ -6,6 +6,7 @@ import { icons } from '../components/icons'
 import { ResendVerification } from '../components/ResendVerification'
 import { TextField } from '../components/TextField'
 import { apiFetch, readError } from '../lib/api'
+import { emailUsername, STUDENT_EMAIL_DOMAIN } from '../lib/auth'
 import { errorNotice, primaryButton } from '../styles'
 
 type Role = 'rider' | 'driver'
@@ -25,8 +26,6 @@ const passwordRules: { pattern: RegExp; name: string }[] = [
   { pattern: /[^A-Za-z0-9]/, name: 'a symbol' },
 ]
 const usernameLength = { min: 3, max: 36 }
-// Only University of Manitoba students can sign up (the backend checks this too).
-const studentEmail = /^[^\s@]+@myumanitoba\.ca$/i
 
 export default function SignupPage() {
   const [selectedRoles, setSelectedRoles] = useState<Role[]>(['rider'])
@@ -53,14 +52,14 @@ export default function SignupPage() {
     if (trimmedUsername.length < usernameLength.min || trimmedUsername.length > usernameLength.max) {
       nextErrors.username = `Use ${usernameLength.min} to ${usernameLength.max} characters.`
     }
-    const trimmedEmail = email.trim()
-    if (!studentEmail.test(trimmedEmail)) nextErrors.email = 'Use your @myumanitoba.ca student email.'
+    if (!email) nextErrors.email = 'Enter the part of your student email before the @.'
     const missing = passwordRules.filter((rule) => !rule.pattern.test(password)).map((rule) => rule.name)
     if (password.length < minPasswordLength) nextErrors.password = `Use at least ${minPasswordLength} characters.`
     else if (missing.length > 0) nextErrors.password = `Add ${missing.join(', ')}.`
-        setErrors(nextErrors)
+    setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
+    const fullEmail = `${email}${STUDENT_EMAIL_DOMAIN}`
     setSubmitting(true)
     setNotice('')
     try {
@@ -68,7 +67,7 @@ export default function SignupPage() {
         method: 'POST',
         body: JSON.stringify({
           username: trimmedUsername,
-          email: trimmedEmail,
+          email: fullEmail,
           password,
           // The backend only stores is_driver. A driver can also request rides, so "both" is a driver.
           is_driver: selectedRoles.includes('driver'),
@@ -83,7 +82,7 @@ export default function SignupPage() {
         return
       }
       // The account can't log in until the student opens the link emailed to their student address.
-      setSentTo(trimmedEmail)
+      setSentTo(fullEmail)
     } catch {
       setNotice("Couldn't reach the server. Check your connection and try again.")
     } finally {
@@ -187,12 +186,12 @@ export default function SignupPage() {
           />
           <TextField
             label="Email"
-            type="email"
             name="email"
             autoComplete="email"
-            placeholder="you@myumanitoba.ca"
+            placeholder="you"
+            suffix={STUDENT_EMAIL_DOMAIN}
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => setEmail(emailUsername(event.target.value))}
             error={errors.email}
           />
           <TextField
@@ -203,7 +202,7 @@ export default function SignupPage() {
             placeholder="Create a password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            hint={`At least ${minPasswordLength} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`} 
+            hint={`At least ${minPasswordLength} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`}
             error={errors.password}
           />
 
