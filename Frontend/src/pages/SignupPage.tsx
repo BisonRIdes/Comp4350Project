@@ -6,7 +6,7 @@ import { icons } from '../components/icons'
 import { ResendVerification } from '../components/ResendVerification'
 import { TextField } from '../components/TextField'
 import { apiFetch, readError } from '../lib/api'
-import { primaryButton } from '../styles'
+import { errorNotice, primaryButton } from '../styles'
 
 type Role = 'rider' | 'driver'
 type Errors = { roles?: string; username?: string; email?: string; password?: string }
@@ -172,7 +172,7 @@ export default function SignupPage() {
                 )
               })}
             </div>
-            {errors.roles && <p className="mt-2 text-[13px] font-medium text-ink">{errors.roles}</p>}
+            {errors.roles && <p className="mt-2 text-[13px] font-medium text-danger">{errors.roles}</p>}
           </fieldset>
 
           <TextField
@@ -182,7 +182,7 @@ export default function SignupPage() {
             placeholder="bison_rider"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
-            hint={`At least ${minPasswordLength} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`}
+            hint={`${usernameLength.min} to ${usernameLength.max} characters.`}
             error={errors.username}
           />
           <TextField
@@ -203,7 +203,7 @@ export default function SignupPage() {
             placeholder="Create a password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            hint={`At least ${minPasswordLength} characters.`}
+            hint={`At least ${minPasswordLength} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`} 
             error={errors.password}
           />
 
