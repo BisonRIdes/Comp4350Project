@@ -4,7 +4,7 @@ import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { TextField } from '../components/TextField'
-import { headingClass, primaryButton , errorNotice } from '../styles'
+import { errorNotice, headingClass, primaryButton } from '../styles'
 import { apiFetch, readError } from '../lib/api'
 import { getUser } from '../lib/auth'
 import { geocode } from '../lib/geocode'
@@ -219,7 +219,7 @@ export default function PostRidePage() {
               <p role="alert" className={errorNotice}>
                 {notice}
               </p>
-            )} 
+            )}
           </form>
         )}
       </main>

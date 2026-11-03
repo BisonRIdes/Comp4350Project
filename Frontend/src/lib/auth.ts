@@ -4,7 +4,7 @@ export type CurrentUser = { id: string; username: string; email: string; is_driv
 export const STUDENT_EMAIL_DOMAIN = '@myumanitoba.ca'
 
 // Keeps only the part before the @, so a pasted or autofilled full email still works.
-export function emailUsername(value: string) {
+export function emailUsername(value: string): string {
   return value.split('@')[0].replace(/\s/g, '')
 }
 

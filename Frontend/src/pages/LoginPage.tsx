@@ -8,7 +8,7 @@ import type { RedirectState } from '../components/RouteGuards'
 import { TextField } from '../components/TextField'
 import { apiFetch, readError } from '../lib/api'
 import { emailUsername, saveSession, STUDENT_EMAIL_DOMAIN, type CurrentUser } from '../lib/auth'
-import { primaryButton, errorNotice } from '../styles'
+import { errorNotice, primaryButton } from '../styles'
 
 type Errors = { email?: string; password?: string }
 type LoginResponse = { access_token: string; user: CurrentUser }
