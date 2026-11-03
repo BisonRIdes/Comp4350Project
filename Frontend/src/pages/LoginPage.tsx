@@ -8,7 +8,7 @@ import type { RedirectState } from '../components/RouteGuards'
 import { TextField } from '../components/TextField'
 import { apiFetch, readError } from '../lib/api'
 import { saveSession, type CurrentUser } from '../lib/auth'
-import { primaryButton } from '../styles'
+import { primaryButton, errorNotice } from '../styles'
 
 type Errors = { email?: string; password?: string }
 type LoginResponse = { access_token: string; user: CurrentUser }
@@ -125,7 +125,7 @@ export default function LoginPage() {
           <Icon className="h-4 w-4">{icons.arrow}</Icon>
         </button>
         {notice && (
-          <p role="status" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
+          <p role="alert" className={errorNotice}>
             {notice}
             {unverifiedEmail && (
               <>
