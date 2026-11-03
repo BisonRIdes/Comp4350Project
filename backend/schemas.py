@@ -1,11 +1,17 @@
 """Request and response models shared by the API routers."""
 
+import re
 from datetime import datetime
 from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from util.constants import STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
+from util.constants import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    STUDENT_EMAIL_DOMAIN,
+    USERNAME_LENGTH,
+)
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
@@ -100,7 +106,7 @@ class CreateUserRequest(BaseModel):
     username: str = Field(min_length=3, max_length=USERNAME_LENGTH)
     # basic format check; avoids needing the email-validator dependency
     email: str = Field(max_length=255, pattern=EMAIL_REGEX)
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
     is_driver: bool = False
 
     @field_validator("email")
@@ -112,6 +118,21 @@ class CreateUserRequest(BaseModel):
         if email.rsplit("@", 1)[1] != STUDENT_EMAIL_DOMAIN:
             raise ValueError(f"Use your @{STUDENT_EMAIL_DOMAIN} student email")
         return email
+
+    @field_validator("password")
+    @classmethod
+    def must_be_strong_password(cls, password: str) -> str:
+        # Each rule is (pattern the password must contain, what to call it in the error).
+        rules = [
+            (r"[A-Z]", "an uppercase letter"),
+            (r"[a-z]", "a lowercase letter"),
+            (r"[0-9]", "a number"),
+            (r"[^A-Za-z0-9]", "a symbol"),
+        ]
+        missing = [name for pattern, name in rules if not re.search(pattern, password)]
+        if missing:
+            raise ValueError(f"Password needs {', '.join(missing)}")
+        return password
 
 
 class VerifyEmailBody(BaseModel):
