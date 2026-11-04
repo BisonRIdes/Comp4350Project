@@ -11,7 +11,7 @@ from tests.helpers import auth, make_user
 from util.tokens import create_token, read_token
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
-BODY = {"username": "alice", "email": "alice@myumanitoba.ca", "password": "password123"}
+BODY = {"username": "alice", "email": "alice@myumanitoba.ca", "password": "Password123!"}
 
 
 def test_create_account() -> None:
@@ -67,6 +67,38 @@ def test_create_account_validation():
     response = client.post("/users", json={**BODY, "password": "short"})
 
     assert response.status_code == 422
+
+
+def test_create_account_password_too_long():
+    response = client.post("/users", json={**BODY, "password": "Aa1!" * 33})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("password", "missing"),
+    [
+        ("password123!", "an uppercase letter"),
+        ("PASSWORD123!", "a lowercase letter"),
+        ("Password!!!", "a number"),
+        ("Password123", "a symbol"),
+    ],
+)
+def test_create_account_weak_password(password: str, missing: str):
+    response = client.post("/users", json={**BODY, "password": password})
+
+    assert response.status_code == 422
+    assert f"Password needs {missing}" in response.json()["detail"][0]["msg"]
+
+
+def test_create_account_weak_password_lists_everything_missing():
+    response = client.post("/users", json={**BODY, "password": "abcdefgh"})
+
+    assert response.status_code == 422
+    assert (
+        "Password needs an uppercase letter, a number, a symbol"
+        in response.json()["detail"][0]["msg"]
+    )
 
 
 @pytest.mark.parametrize(

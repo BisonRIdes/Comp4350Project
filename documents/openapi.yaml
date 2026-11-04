@@ -453,7 +453,12 @@ components:
           format: email
           maxLength: 255
           description: Must be an @myumanitoba.ca student email. Stored in lowercase.
-        password: { type: string, format: password, minLength: 8 }
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: Must have an uppercase letter, a lowercase letter, a number and a symbol.
         is_driver: { type: boolean, default: false }
 
     GeoJSONPoint:
