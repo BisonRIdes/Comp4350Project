@@ -13,7 +13,7 @@ export type RideOut = {
   origin_point?: { type: string; coordinates: [number, number] }
   origin_label?: string
   destination_label?: string
-  price_cents?: number
+  price_cents?: number | null // null for rides posted before prices were saved
 }
 
 export function toRide(raw: RideOut): Ride {
@@ -22,7 +22,7 @@ export function toRide(raw: RideOut): Ride {
     from: raw.origin_label,
     to: raw.destination_label ?? DESTINATION,
     departure: raw.departure_time,
-    price: raw.price_cents === undefined ? undefined : raw.price_cents / 100,
+    price: raw.price_cents == null ? undefined : raw.price_cents / 100,
     // RideOut has no count of accepted riders yet, so this is the total seats offered.
     seatsLeft: raw.seats,
   }
