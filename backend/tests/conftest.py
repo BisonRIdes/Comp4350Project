@@ -18,6 +18,13 @@ def no_real_emails(monkeypatch):
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def no_real_payments(monkeypatch):
+    # same for Stripe: tests that need it set fake keys and replace the calls
+    monkeypatch.delenv("STRIPE_SECRET_KEY", raising=False)
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def fresh_database():
     # sanity check
