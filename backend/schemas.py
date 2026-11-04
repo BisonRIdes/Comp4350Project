@@ -94,6 +94,19 @@ class UpdatesOut(BaseModel):
     request_updates: list[RideRequestOut]
 
 
+class PaymentOut(BaseModel):
+    """A rider's payment for their seat."""
+
+    request_id: str
+    ride_id: str
+    # None when the ride has no price, so there's nothing to pay
+    amount_cents: int | None
+    # "processing": paid in the browser, waiting for Stripe's webhook to confirm it
+    status: Literal["unpaid", "processing", "paid"]
+    # only while unpaid: lets Stripe's payment form in the browser take the card for this payment
+    client_secret: str | None = None
+
+
 class CreateUserRequest(BaseModel):
     """Request body for creating a user account. Since account created cannot be driver by default,
     `is_driver` is defaulted to `False` on creation."""

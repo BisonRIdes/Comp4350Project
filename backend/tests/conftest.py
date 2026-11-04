@@ -25,6 +25,24 @@ def no_real_payments(monkeypatch):
     monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
 
 
+@pytest.fixture
+def fake_stripe(monkeypatch):
+    """Replace every call to Stripe with a FakeStripe (see helpers.py)."""
+    from tests.helpers import FakeStripe
+    from util import stripe_api
+
+    fake = FakeStripe()
+    for name in (
+        "start_payment",
+        "get_payment",
+        "change_amount",
+        "cancel_payment",
+        "refund_payment",
+    ):
+        monkeypatch.setattr(stripe_api, name, getattr(fake, name))
+    return fake
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def fresh_database():
     # sanity check

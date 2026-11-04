@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import APIKeyHeader
 
 from database import Base, engine
-from routers import auth, ride_requests, rides, updates, users
+from routers import auth, payments, ride_requests, rides, updates, users
 
 API_KEY = os.environ["API_KEY"]
 
@@ -40,3 +40,4 @@ app.include_router(auth.router)
 app.include_router(rides.router)
 app.include_router(ride_requests.router)
 app.include_router(updates.router)
+app.include_router(payments.router)

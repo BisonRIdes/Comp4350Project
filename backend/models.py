@@ -55,3 +55,15 @@ class RideRegistration(Base):
 
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
     rider_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
+
+
+class Payment(Base):
+    """A rider's card payment for their seat on a ride. Stripe keeps the card details and history."""
+
+    __tablename__ = "payments"
+
+    request_id: Mapped[str] = mapped_column(ForeignKey("ride_requests.id"), primary_key=True)
+    stripe_payment_id: Mapped[str] = mapped_column(String(255), unique=True)
+    amount_cents: Mapped[int]
+    # "unpaid" until Stripe's webhook says the money arrived, then "paid"
+    status: Mapped[str] = mapped_column(String(20), default="unpaid")

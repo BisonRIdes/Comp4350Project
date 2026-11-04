@@ -2,6 +2,7 @@
 
 import os
 from datetime import datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -76,3 +77,43 @@ async def make_registration(ride: str, rider: str):
         reg = RideRegistration(ride_id=ride, rider_id=rider)
         db.add(reg)
         await db.commit()
+
+
+class FakeStripe:
+    """Stands in for util/stripe_api.py in route tests and remembers what was asked of Stripe.
+
+    `status` is what Stripe says about the payment, e.g. set it to "succeeded" once the rider paid.
+    """
+
+    def __init__(self):
+        self.status = "requires_payment_method"
+        self.amount = 0
+        self.calls: list[tuple] = []
+
+    def intent(self, intent_id: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=intent_id,
+            client_secret=f"{intent_id}_secret",
+            status=self.status,
+            amount=self.amount,
+        )
+
+    async def start_payment(self, request_id: str, amount_cents: int) -> SimpleNamespace:
+        self.calls.append(("start", request_id, amount_cents))
+        self.amount = amount_cents
+        return self.intent(f"pi_{request_id}")
+
+    async def get_payment(self, intent_id: str) -> SimpleNamespace:
+        self.calls.append(("get", intent_id))
+        return self.intent(intent_id)
+
+    async def change_amount(self, intent_id: str, amount_cents: int) -> SimpleNamespace:
+        self.calls.append(("change", intent_id, amount_cents))
+        self.amount = amount_cents
+        return self.intent(intent_id)
+
+    async def cancel_payment(self, intent_id: str) -> None:
+        self.calls.append(("cancel", intent_id))
+
+    async def refund_payment(self, intent_id: str) -> None:
+        self.calls.append(("refund", intent_id))
