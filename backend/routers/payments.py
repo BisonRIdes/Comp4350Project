@@ -10,6 +10,7 @@ from models import Payment, Ride, RideRequest, User
 from schemas import PaymentOut
 from util import stripe_api
 from util.auth import CurrentUser
+from util.email import send_payment_receipt
 
 router = APIRouter(tags=["payments"])
 
@@ -110,7 +111,12 @@ async def stripe_webhook(request: Request, db: Annotated[AsyncSession, Depends(g
     intent = event.data.object
     payment = await db.scalar(select(Payment).where(Payment.stripe_payment_id == intent.id))
     # Stripe can send the same event more than once, so only the first one counts
-    if payment is not None and payment.status == "unpaid":
-        payment.status = "paid"
-        payment.amount_cents = intent.amount_received
-        await db.commit()
+    if payment is None or payment.status != "unpaid":
+        return
+    payment.status = "paid"
+    payment.amount_cents = intent.amount_received
+    ride_request = await db.get(RideRequest, payment.request_id)
+    rider = await db.get(User, ride_request.rider_id)
+    await db.commit()
+    # Stripe doesn't email receipts for test payments, so we send our own
+    await send_payment_receipt(rider.email, payment.request_id, payment.amount_cents)

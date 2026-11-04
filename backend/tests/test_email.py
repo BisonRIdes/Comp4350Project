@@ -5,7 +5,7 @@ import urllib.error
 import urllib.request
 from unittest.mock import MagicMock
 
-from util.email import RESEND_URL, USER_AGENT, send_verification_email
+from util.email import RESEND_URL, USER_AGENT, send_payment_receipt, send_verification_email
 
 
 def fake_urlopen(sent: list):
@@ -57,7 +57,7 @@ async def test_a_failed_email_is_logged_not_raised(monkeypatch, caplog):
     with caplog.at_level(logging.ERROR):
         await send_verification_email("alice@myumanitoba.ca", "abc")
 
-    assert "Could not send verification email" in caplog.text
+    assert "Could not send 'Verify your BisonRides account'" in caplog.text
 
 
 async def test_a_rejected_email_logs_resends_reason(monkeypatch, caplog):
@@ -73,3 +73,18 @@ async def test_a_rejected_email_logs_resends_reason(monkeypatch, caplog):
 
     assert "403" in caplog.text
     assert "domain is not verified" in caplog.text
+
+
+async def test_payment_receipt(monkeypatch):
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(sent))
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("FRONTEND_URL", "https://app.bisonrides.me")
+
+    await send_payment_receipt("bob@myumanitoba.ca", "req-1", 650)
+
+    message = json.loads(sent[0].data)
+    assert message["to"] == ["bob@myumanitoba.ca"]
+    assert message["subject"] == "Your BisonRides seat is paid"
+    assert "$6.50 CAD" in message["text"]
+    assert "https://app.bisonrides.me/requests/req-1/pay" in message["text"]

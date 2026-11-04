@@ -1,4 +1,5 @@
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ from sqlalchemy import select
 from database import SessionLocal
 from main import app
 from models import Payment, Ride
+from routers import payments
 from tests.helpers import (
     STRIPE_WEBHOOK_SECRET,
     auth,
@@ -220,6 +222,14 @@ def webhook_secret(monkeypatch):
     monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET)
 
 
+@pytest.fixture
+def receipts(monkeypatch):
+    """Replaces the receipt email, to check who would have got one."""
+    sent = AsyncMock()
+    monkeypatch.setattr(payments, "send_payment_receipt", sent)
+    return sent
+
+
 def payment_succeeded(intent_id: str, amount_cents: int = 500) -> str:
     """The body of the event Stripe sends when a payment goes through."""
     intent = {"id": intent_id, "object": "payment_intent", "amount_received": amount_cents}
@@ -234,7 +244,7 @@ def send_webhook(payload: str, signature: str | None = None):
     )
 
 
-async def test_webhook_marks_the_seat_paid(webhook_secret):
+async def test_webhook_marks_the_seat_paid(webhook_secret, receipts):
     _, rider_id, request_id = await accepted_seat()
     await save_payment(request_id)
 
@@ -245,9 +255,10 @@ async def test_webhook_marks_the_seat_paid(webhook_secret):
         assert (await db.get(Payment, request_id)).status == "paid"
     seat = client.get(f"/requests/{request_id}/payment", headers=auth(rider_id))
     assert seat.json()["status"] == "paid"
+    receipts.assert_awaited_once_with("rider@myumanitoba.ca", request_id, 500)
 
 
-async def test_webhook_sent_twice_counts_once(webhook_secret):
+async def test_webhook_sent_twice_counts_once(webhook_secret, receipts):
     _, _, request_id = await accepted_seat()
     await save_payment(request_id)
 
@@ -257,6 +268,7 @@ async def test_webhook_sent_twice_counts_once(webhook_secret):
     assert response.status_code == 204
     async with SessionLocal() as db:
         assert (await db.get(Payment, request_id)).amount_cents == 500
+    receipts.assert_awaited_once()
 
 
 async def test_webhook_with_a_forged_signature(webhook_secret):
