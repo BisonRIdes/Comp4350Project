@@ -16,6 +16,20 @@ export type RideOut = {
   price_cents?: number | null // null for rides posted before prices were saved
 }
 
+const departureFormat = new Intl.DateTimeFormat('en-CA', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+// e.g. "Tue, Nov 10, 8:15 a.m."
+export const formatDeparture = (iso: string) => departureFormat.format(new Date(iso))
+
+// e.g. "Pembina & Bishop → University of Manitoba", or just the destination until the start is known.
+export const routeLabel = (ride: Ride) => (ride.from ? `${ride.from} → ${ride.to}` : (ride.to ?? DESTINATION))
+
 export function toRide(raw: RideOut): Ride {
   return {
     id: String(raw.id),

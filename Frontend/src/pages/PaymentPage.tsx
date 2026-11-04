@@ -16,6 +16,7 @@ import {
   startPayment,
   type Payment,
 } from '../lib/payments'
+import { formatDeparture, routeLabel } from '../lib/rides'
 import { headingClass, primaryButton } from '../styles'
 
 type View =
@@ -23,23 +24,13 @@ type View =
   | { state: 'error'; message: string }
   | { state: 'unpaid' | 'processing' | 'paid'; payment: Payment }
 
-const when = new Intl.DateTimeFormat('en-CA', {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-})
-
 function RideSummary({ ride, amountCents }: { ride?: Ride; amountCents: number | null }) {
   return (
     <div className="mt-10 rounded-3xl bg-mist p-6">
       {ride && (
         <>
-          <p className="text-[17px] font-semibold tracking-tight">
-            {ride.from ? `${ride.from} → ${ride.to}` : ride.to}
-          </p>
-          <p className="mt-0.5 text-sm text-subtle">{when.format(new Date(ride.departure))}</p>
+          <p className="text-[17px] font-semibold tracking-tight">{routeLabel(ride)}</p>
+          <p className="mt-0.5 text-sm text-subtle">{formatDeparture(ride.departure)}</p>
         </>
       )}
       {amountCents !== null && (
