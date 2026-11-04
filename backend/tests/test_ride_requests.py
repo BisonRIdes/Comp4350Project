@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Ride, RideRegistration
+from models import Ride, RideRegistration, RideRequest
 from tests.helpers import auth, client, make_registration, make_request, make_ride, make_user
 
 
@@ -76,6 +76,18 @@ async def test_create_ride_request_not_logged_in():
     response = client.post(f"/rides/{ride_id}/requests")
 
     assert response.status_code == 401
+
+
+async def test_create_ride_request_own_ride():
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id)
+
+    response = client.post(f"/rides/{ride_id}/requests", headers=auth(driver_id))
+
+    assert response.status_code == 403
+    # nothing was saved, so the driver isn't shown a request from themselves
+    async with SessionLocal() as db:
+        assert await db.scalar(select(RideRequest)) is None
 
 
 async def test_create_ride_request_duplicate_request():
