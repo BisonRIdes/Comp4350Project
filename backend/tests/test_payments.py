@@ -13,6 +13,7 @@ from tests.helpers import (
     STRIPE_WEBHOOK_SECRET,
     auth,
     client,
+    make_payment,
     make_request,
     make_ride,
     make_user,
@@ -28,19 +29,6 @@ async def accepted_seat(price_cents: int | None = 500) -> tuple[str, str, str]:
     rider_id = await make_user("rider")
     request_id = await make_request(ride_id, rider_id, "accepted")
     return driver_id, rider_id, request_id
-
-
-async def save_payment(request_id: str, status: str = "unpaid", amount_cents: int = 500):
-    async with SessionLocal() as db:
-        db.add(
-            Payment(
-                request_id=request_id,
-                stripe_payment_id=f"pi_{request_id}",
-                amount_cents=amount_cents,
-                status=status,
-            )
-        )
-        await db.commit()
 
 
 # start a payment
@@ -79,7 +67,7 @@ async def test_start_payment_from_two_tabs_at_once(fake_stripe, monkeypatch):
 
     async def other_tab_saves_first(request_id, amount_cents):
         intent = await fake_stripe.start_payment(request_id, amount_cents)
-        await save_payment(request_id)
+        await make_payment(request_id)
         return intent
 
     monkeypatch.setattr(stripe_api, "start_payment", other_tab_saves_first)
@@ -120,7 +108,7 @@ async def test_start_payment_already_paid_in_the_browser(fake_stripe):
 
 async def test_start_payment_when_already_paid(fake_stripe):
     _, rider_id, request_id = await accepted_seat()
-    await save_payment(request_id, "paid", 500)
+    await make_payment(request_id, "paid", 500)
 
     response = client.post(f"/requests/{request_id}/payment", headers=auth(rider_id))
 
@@ -194,7 +182,7 @@ async def test_read_payment_before_paying():
 
 async def test_read_payment_once_paid():
     _, rider_id, request_id = await accepted_seat(price_cents=650)
-    await save_payment(request_id, "paid", 500)
+    await make_payment(request_id, "paid", 500)
 
     response = client.get(f"/requests/{request_id}/payment", headers=auth(rider_id))
 
@@ -246,7 +234,7 @@ def send_webhook(payload: str, signature: str | None = None):
 
 async def test_webhook_marks_the_seat_paid(webhook_secret, receipts):
     _, rider_id, request_id = await accepted_seat()
-    await save_payment(request_id)
+    await make_payment(request_id)
 
     response = send_webhook(payment_succeeded(f"pi_{request_id}", 500))
 
@@ -260,7 +248,7 @@ async def test_webhook_marks_the_seat_paid(webhook_secret, receipts):
 
 async def test_webhook_sent_twice_counts_once(webhook_secret, receipts):
     _, _, request_id = await accepted_seat()
-    await save_payment(request_id)
+    await make_payment(request_id)
 
     send_webhook(payment_succeeded(f"pi_{request_id}", 500))
     response = send_webhook(payment_succeeded(f"pi_{request_id}", 999))
@@ -273,7 +261,7 @@ async def test_webhook_sent_twice_counts_once(webhook_secret, receipts):
 
 async def test_webhook_with_a_forged_signature(webhook_secret):
     _, _, request_id = await accepted_seat()
-    await save_payment(request_id)
+    await make_payment(request_id)
     payload = payment_succeeded(f"pi_{request_id}")
 
     response = send_webhook(payload, stripe_signature(payload, "whsec_someone_else"))
@@ -291,7 +279,7 @@ async def test_webhook_for_a_payment_we_dont_have(webhook_secret):
 
 async def test_webhook_ignores_other_events(webhook_secret):
     _, _, request_id = await accepted_seat()
-    await save_payment(request_id)
+    await make_payment(request_id)
     payload = payment_succeeded(f"pi_{request_id}").replace(
         "payment_intent.succeeded", "payment_intent.payment_failed"
     )
