@@ -64,6 +64,7 @@ function CardForm({ payment, onPaid }: { payment: Payment; onPaid: () => void })
   useEffect(() => {
     let active = true
     let destroy = () => {}
+    const failed = () => setError("Couldn't load the payment form. Check your connection and refresh the page.")
     getStripe()
       .then((loaded) => {
         if (!active || !container.current) return
@@ -71,12 +72,14 @@ function CardForm({ payment, onPaid }: { payment: Payment; onPaid: () => void })
         const group = loaded.elements({ clientSecret: payment.client_secret ?? '', appearance, fonts })
         const element = group.create('payment')
         element.on('ready', () => setReady(true))
+        // e.g. the payment was cancelled in the meantime, or the publishable key is wrong
+        element.on('loaderror', failed)
         element.mount(container.current)
         destroy = () => element.destroy()
         setStripe(loaded)
         setElements(group)
       })
-      .catch(() => setError("Couldn't load the payment form. Check your connection and refresh the page."))
+      .catch(failed)
     return () => {
       active = false
       destroy()
@@ -105,7 +108,7 @@ function CardForm({ payment, onPaid }: { payment: Payment; onPaid: () => void })
 
   return (
     <form onSubmit={pay} className="mt-8 space-y-6">
-      <div ref={container} className={ready ? '' : 'min-h-[180px] animate-pulse rounded-xl bg-mist'} />
+      <div ref={container} className={ready || error ? '' : 'min-h-[180px] animate-pulse rounded-xl bg-mist'} />
       <button type="submit" disabled={!ready || submitting} className={`${primaryButton} w-full disabled:opacity-60`}>
         {submitting ? 'Paying…' : `Pay ${formatPrice(payment.amount_cents ?? 0)}`}
         <Icon className="h-4 w-4">{icons.arrow}</Icon>
