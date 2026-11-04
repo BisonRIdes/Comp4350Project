@@ -2,7 +2,7 @@ import os
 import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 
 from database import Base, engine
@@ -13,7 +13,10 @@ API_KEY = os.environ["API_KEY"]
 header_scheme = APIKeyHeader(name="x-key", auto_error=None)
 
 
-def require_key(key: str | None = Security(header_scheme)):
+def require_key(request: Request, key: str | None = Security(header_scheme)):
+    # Stripe can't send our key, so its webhook checks Stripe's signature instead
+    if request.url.path == payments.WEBHOOK_PATH:
+        return
     # safe comparison
     if not key or not secrets.compare_digest(key.encode(), API_KEY.encode()):
         raise HTTPException(status_code=401)

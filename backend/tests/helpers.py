@@ -1,6 +1,9 @@
 """Shared setup for API tests: a client with the API key and helpers to seed the DB."""
 
+import hashlib
+import hmac
 import os
+import time
 from datetime import datetime
 from types import SimpleNamespace
 from uuid import uuid4
@@ -16,6 +19,7 @@ from util.tokens import create_token
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
 POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
+STRIPE_WEBHOOK_SECRET = "whsec_test"
 
 
 def new_id() -> str:
@@ -117,3 +121,12 @@ class FakeStripe:
 
     async def refund_payment(self, intent_id: str) -> None:
         self.calls.append(("refund", intent_id))
+
+
+def stripe_signature(payload: str, secret: str = STRIPE_WEBHOOK_SECRET) -> str:
+    """A Stripe-Signature header for this webhook payload, made the way Stripe makes it."""
+    timestamp = int(time.time())
+    signature = hmac.new(
+        secret.encode(), f"{timestamp}.{payload}".encode(), hashlib.sha256
+    ).hexdigest()
+    return f"t={timestamp},v1={signature}"

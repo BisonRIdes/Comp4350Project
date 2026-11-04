@@ -1,17 +1,13 @@
-import hashlib
-import hmac
 import json
 import logging
-import time
 from unittest.mock import MagicMock
 
 import pytest
 import stripe
 from fastapi import HTTPException
 
+from tests.helpers import STRIPE_WEBHOOK_SECRET, stripe_signature
 from util import stripe_api
-
-WEBHOOK_SECRET = "whsec_test"
 
 
 @pytest.fixture
@@ -21,15 +17,6 @@ def client(monkeypatch):
     monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_123")
     monkeypatch.setattr(stripe, "StripeClient", lambda api_key: fake)
     return fake
-
-
-def signed(payload: str, secret: str = WEBHOOK_SECRET) -> str:
-    """A Stripe-Signature header for this payload, made the way Stripe makes it."""
-    timestamp = int(time.time())
-    signature = hmac.new(
-        secret.encode(), f"{timestamp}.{payload}".encode(), hashlib.sha256
-    ).hexdigest()
-    return f"t={timestamp},v1={signature}"
 
 
 async def test_start_payment(client):
@@ -77,28 +64,31 @@ async def test_a_stripe_error_is_logged_and_becomes_a_502(client, caplog):
 
 
 def test_read_webhook_event(monkeypatch):
-    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", WEBHOOK_SECRET)
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET)
     payload = json.dumps(
         {"id": "evt_1", "object": "event", "type": "payment_intent.succeeded", "data": {}}
     )
 
-    event = stripe_api.read_webhook_event(payload.encode(), signed(payload))
+    event = stripe_api.read_webhook_event(payload.encode(), stripe_signature(payload))
 
     assert event.type == "payment_intent.succeeded"
 
 
 def test_webhook_signed_with_another_secret_is_rejected(monkeypatch):
-    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", WEBHOOK_SECRET)
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET)
     payload = json.dumps({"id": "evt_1", "object": "event", "type": "payment_intent.succeeded"})
 
-    assert stripe_api.read_webhook_event(payload.encode(), signed(payload, "whsec_other")) is None
+    assert (
+        stripe_api.read_webhook_event(payload.encode(), stripe_signature(payload, "whsec_other"))
+        is None
+    )
     assert stripe_api.read_webhook_event(payload.encode(), None) is None
 
 
 def test_webhook_that_isnt_json_is_rejected(monkeypatch):
-    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", WEBHOOK_SECRET)
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET)
 
-    assert stripe_api.read_webhook_event(b"not json", signed("not json")) is None
+    assert stripe_api.read_webhook_event(b"not json", stripe_signature("not json")) is None
 
 
 def test_webhook_without_a_secret_is_unavailable():

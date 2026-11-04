@@ -1,6 +1,7 @@
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,8 @@ router = APIRouter(tags=["payments"])
 
 # Stripe statuses for a payment the rider has already confirmed in the browser
 PAID_IN_BROWSER: Final = ("processing", "succeeded")
+# where Stripe sends payment events (set in the Stripe dashboard, pointing straight at Render)
+WEBHOOK_PATH: Final = "/payments/webhook"
 
 
 # the ride for the caller's accepted request; only accepted seats can be paid for
@@ -90,3 +93,24 @@ async def read_payment(
         amount_cents=payment.amount_cents if payment else ride.price_cents,
         status=payment.status if payment else "unpaid",
     )
+
+
+# Stripe calls this when a payment goes through. It has no API key or login: Stripe signs every
+# call instead, so only Stripe can mark a seat paid. Answering 2xx tells Stripe to stop retrying.
+@router.post(WEBHOOK_PATH, status_code=204, include_in_schema=False)
+async def stripe_webhook(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> None:
+    event = stripe_api.read_webhook_event(
+        await request.body(), request.headers.get("stripe-signature")
+    )
+    if event is None:
+        raise HTTPException(status_code=400, detail="Not a valid Stripe webhook")
+    if event.type != "payment_intent.succeeded":
+        return
+
+    intent = event.data.object
+    payment = await db.scalar(select(Payment).where(Payment.stripe_payment_id == intent.id))
+    # Stripe can send the same event more than once, so only the first one counts
+    if payment is not None and payment.status == "unpaid":
+        payment.status = "paid"
+        payment.amount_cents = intent.amount_received
+        await db.commit()

@@ -1,8 +1,21 @@
+import json
+
+import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from database import SessionLocal
+from main import app
 from models import Payment, Ride
-from tests.helpers import auth, client, make_request, make_ride, make_user
+from tests.helpers import (
+    STRIPE_WEBHOOK_SECRET,
+    auth,
+    client,
+    make_request,
+    make_ride,
+    make_user,
+    stripe_signature,
+)
 from util import stripe_api
 
 
@@ -194,3 +207,90 @@ async def test_read_payment_for_a_ride_without_a_price():
     response = client.get(f"/requests/{request_id}/payment", headers=auth(rider_id))
 
     assert response.json()["amount_cents"] is None
+
+
+# Stripe's webhook
+
+# Stripe calls the webhook without our x-key
+stripe_client = TestClient(app)
+
+
+@pytest.fixture
+def webhook_secret(monkeypatch):
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET)
+
+
+def payment_succeeded(intent_id: str, amount_cents: int = 500) -> str:
+    """The body of the event Stripe sends when a payment goes through."""
+    intent = {"id": intent_id, "object": "payment_intent", "amount_received": amount_cents}
+    event = {"id": "evt_1", "object": "event", "type": "payment_intent.succeeded"}
+    return json.dumps({**event, "data": {"object": intent}})
+
+
+def send_webhook(payload: str, signature: str | None = None):
+    signature = signature or stripe_signature(payload)
+    return stripe_client.post(
+        "/payments/webhook", content=payload, headers={"stripe-signature": signature}
+    )
+
+
+async def test_webhook_marks_the_seat_paid(webhook_secret):
+    _, rider_id, request_id = await accepted_seat()
+    await save_payment(request_id)
+
+    response = send_webhook(payment_succeeded(f"pi_{request_id}", 500))
+
+    assert response.status_code == 204
+    async with SessionLocal() as db:
+        assert (await db.get(Payment, request_id)).status == "paid"
+    seat = client.get(f"/requests/{request_id}/payment", headers=auth(rider_id))
+    assert seat.json()["status"] == "paid"
+
+
+async def test_webhook_sent_twice_counts_once(webhook_secret):
+    _, _, request_id = await accepted_seat()
+    await save_payment(request_id)
+
+    send_webhook(payment_succeeded(f"pi_{request_id}", 500))
+    response = send_webhook(payment_succeeded(f"pi_{request_id}", 999))
+
+    assert response.status_code == 204
+    async with SessionLocal() as db:
+        assert (await db.get(Payment, request_id)).amount_cents == 500
+
+
+async def test_webhook_with_a_forged_signature(webhook_secret):
+    _, _, request_id = await accepted_seat()
+    await save_payment(request_id)
+    payload = payment_succeeded(f"pi_{request_id}")
+
+    response = send_webhook(payload, stripe_signature(payload, "whsec_someone_else"))
+
+    assert response.status_code == 400
+    async with SessionLocal() as db:
+        assert (await db.get(Payment, request_id)).status == "unpaid"
+
+
+async def test_webhook_for_a_payment_we_dont_have(webhook_secret):
+    response = send_webhook(payment_succeeded("pi_unknown"))
+
+    assert response.status_code == 204
+
+
+async def test_webhook_ignores_other_events(webhook_secret):
+    _, _, request_id = await accepted_seat()
+    await save_payment(request_id)
+    payload = payment_succeeded(f"pi_{request_id}").replace(
+        "payment_intent.succeeded", "payment_intent.payment_failed"
+    )
+
+    response = send_webhook(payload)
+
+    assert response.status_code == 204
+    async with SessionLocal() as db:
+        assert (await db.get(Payment, request_id)).status == "unpaid"
+
+
+def test_only_the_webhook_skips_the_api_key():
+    assert stripe_client.get("/rides").status_code == 401
+    assert stripe_client.post("/requests/nope/payment").status_code == 401
