@@ -49,13 +49,14 @@ async def make_user(
         return user.id
 
 
-async def make_ride(driver_id: str, seats: int = 2) -> str:
+async def make_ride(driver_id: str, seats: int = 2, price_cents: int | None = None) -> str:
     async with SessionLocal() as db:
         ride = Ride(
             driver_id=driver_id,
             origin_point=POINT,
             departure_time=datetime(2026, 11, 1, 14, 30),
             seats=seats,
+            price_cents=price_cents,
         )
         db.add(ride)
         await db.commit()

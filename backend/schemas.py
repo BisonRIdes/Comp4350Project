@@ -5,7 +5,7 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from util.constants import STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
+from util.constants import MIN_PRICE_CENTS, STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
@@ -45,6 +45,7 @@ class RideOut(BaseModel):
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int
+    price_cents: int | None
 
 
 class CreateRideBody(BaseModel):
@@ -53,6 +54,8 @@ class CreateRideBody(BaseModel):
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int = Field(default=1, ge=1)
+    # price per seat in cents, e.g. 500 for $5.00
+    price_cents: int | None = Field(default=None, ge=MIN_PRICE_CENTS)
 
 
 class UpdateRideBody(BaseModel):
@@ -61,6 +64,7 @@ class UpdateRideBody(BaseModel):
     origin_point: GeoJSONPoint | None = None
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
+    price_cents: int | None = Field(default=None, ge=MIN_PRICE_CENTS)
 
 
 class RideRequestOut(BaseModel):

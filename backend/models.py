@@ -37,6 +37,8 @@ class Ride(Base):
     origin_point: Mapped[dict] = mapped_column(JSON)
     departure_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     seats: Mapped[int] = mapped_column(default=1)
+    # What each rider pays for a seat, in cents (CAD). Rides posted before prices were saved have none.
+    price_cents: Mapped[int | None] = mapped_column(default=None)
 
 
 class RideRequest(Base):
