@@ -241,6 +241,11 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RideRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The logged-in user is this ride's driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: The rider already requested or already joined this ride

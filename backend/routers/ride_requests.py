@@ -54,6 +54,10 @@ async def create_ride_request(
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride doesn't exist")
 
+    # a driver can't take a seat on their own ride
+    if ride.driver_id == user.id:
+        raise HTTPException(status_code=403, detail="You can't request a seat on your own ride")
+
     # check if they've already created a ride request/registration for this ride
     duplicate_requests = await db.scalar(
         select(RideRequest).where(RideRequest.ride_id == ride_id, RideRequest.rider_id == user.id)
