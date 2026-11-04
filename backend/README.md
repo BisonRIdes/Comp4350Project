@@ -77,12 +77,6 @@ Render also has `API_KEY` set to its own random key, not the placeholder from `.
 
 Render also needs `JWT_SECRET` (the app won't start without it) and the email variables below. Generate the secret with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it logs everyone out.
 
-On startup the app creates any missing tables (like `payments`), but it never adds columns to tables that already exist. Before deploying a change that adds a column, run the matching SQL in Supabase's SQL editor first, or every query on that table fails. For ride prices:
-
-```sql
-ALTER TABLE rides ADD COLUMN price_cents integer;
-```
-
 ## Accounts and login
 Only University of Manitoba students can use the app:
 

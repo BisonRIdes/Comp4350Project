@@ -1,11 +1,3 @@
-"""Talks to Stripe, which takes the card payments for seats.
-
-Card details never reach our servers: the browser sends them straight to Stripe, and Stripe tells us
-a payment went through by calling our webhook (see routers/payments.py). With test keys
-(sk_test_...) only Stripe's test cards work and no real money moves. Taking real payments later is a
-change of keys, not of code.
-"""
-
 import asyncio
 import logging
 import os
