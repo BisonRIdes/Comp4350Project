@@ -135,7 +135,7 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : loadError ? (
-            <p role="alert" className="mt-6 rounded-3xl bg-mist px-6 py-10 text-center text-subtle">
+            <p role="alert" className="mt-6 rounded-3xl bg-danger/5 px-6 py-10 text-center font-medium text-danger ring-1 ring-danger/20">
               {loadError}
             </p>
           ) : rides.length > 0 ? (

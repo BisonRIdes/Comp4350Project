@@ -7,6 +7,7 @@
   --color-ink: #1d1d1f;
   --color-subtle: #6e6e73;
   --color-mist: #f5f5f7;
+  --color-danger: #d70015;
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 

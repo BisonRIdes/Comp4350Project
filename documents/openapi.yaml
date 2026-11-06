@@ -246,6 +246,11 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RideRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The logged-in user is this ride's driver
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: The rider already requested or already joined this ride
@@ -566,7 +571,12 @@ components:
           format: email
           maxLength: 255
           description: Must be an @myumanitoba.ca student email. Stored in lowercase.
-        password: { type: string, format: password, minLength: 8 }
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: Must have an uppercase letter, a lowercase letter, a number and a symbol.
         is_driver: { type: boolean, default: false }
 
     GeoJSONPoint:
