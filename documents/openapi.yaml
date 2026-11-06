@@ -12,6 +12,10 @@ info:
     Send the returned token as `Authorization: Bearer <token>` on every other request.
     Sign up and the `/auth` endpoints are the only ones that don't need the token.
 
+    Riders pay for a seat by card through Stripe once the driver accepts their request. Card details
+    go straight from the browser to Stripe; this API only starts payments and hears back from Stripe
+    on `POST /payments/webhook`, the one route without `x-key` (Stripe signs those calls instead).
+
 servers:
   - url: http://localhost:8000
     description: Local development
@@ -29,6 +33,7 @@ tags:
   - name: Rides
   - name: Requests
   - name: Updates
+  - name: Payments
 
 paths:
   /auth/login:
@@ -320,7 +325,10 @@ paths:
       tags: [Requests]
       operationId: cancelRideRequest
       summary: The rider cancels their own request
-      description: If the request was already accepted, the rider is also removed from the ride.
+      description: |
+        If the request was already accepted, the rider is also removed from the ride.
+        A paid seat is refunded in full, and an unpaid payment is cancelled so it can't go through
+        later. Stripe is asked first: if it can't refund, nothing changes and the rider can retry.
       responses:
         "204":
           description: Request cancelled
@@ -331,6 +339,101 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /requests/{request_id}/payment:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      tags: [Payments]
+      operationId: startPayment
+      summary: Start (or pick up) paying for an accepted seat
+      description: |
+        Only the rider who made the request can pay, and only after the driver accepts it.
+        The amount is the ride's `price_cents`, set by the server. Calling this again returns the
+        same payment, updated if the driver changed the price before the rider paid.
+
+        Pass `client_secret` to Stripe's Payment Element in the browser to take the card. The seat
+        counts as paid once Stripe confirms it to `POST /payments/webhook`, usually within seconds.
+      responses:
+        "200":
+          description: The payment for this seat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The request belongs to someone else
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The driver hasn't accepted the request, or the ride has no price
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+        "503": { $ref: "#/components/responses/PaymentsNotSetUp" }
+    get:
+      tags: [Payments]
+      operationId: readPayment
+      summary: Whether a seat is paid
+      description: Never contacts Stripe and never includes `client_secret`.
+      responses:
+        "200":
+          description: The payment for this seat (`unpaid` if none was started)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The request belongs to someone else
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The driver hasn't accepted the request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /payments/webhook:
+    post:
+      tags: [Payments]
+      operationId: stripeWebhook
+      summary: Stripe reports a payment event (called by Stripe, not the frontend)
+      description: |
+        Needs no `x-key` or login. Instead the `Stripe-Signature` header must be a valid signature
+        of the raw body with `STRIPE_WEBHOOK_SECRET`. Point Stripe straight at the backend
+        (`https://bisonrides-api.onrender.com/payments/webhook`), not through the frontend's `/api`
+        proxy, which doesn't forward that header.
+
+        Only `payment_intent.succeeded` does anything: it marks the seat paid and emails the rider
+        a receipt. Repeats of the same event are ignored. Other events are acknowledged and ignored.
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: A Stripe event object
+      responses:
+        "204":
+          description: Event received
+        "400":
+          description: Not signed by Stripe with our webhook secret, or not valid JSON
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { $ref: "#/components/responses/PaymentsNotSetUp" }
 
   /updates:
     get:
@@ -391,6 +494,16 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     ValidationError:
       description: Request body or parameters failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    PaymentProviderError:
+      description: Stripe couldn't be reached or refused the request. Try again in a minute.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    PaymentsNotSetUp:
+      description: The server has no Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`)
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -482,13 +595,16 @@ components:
 
     Ride:
       type: object
-      required: [id, driver_id, origin_point, departure_time, seats]
+      required: [id, driver_id, origin_point, departure_time, seats, price_cents]
       properties:
         id: { type: string, format: uuid }
         driver_id: { type: string, format: uuid }
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 0 }
+        price_cents:
+          type: [integer, "null"]
+          description: What each rider pays for a seat, in cents (CAD). Null for rides posted before prices were saved.
 
     CreateRideRequest:
       type: object
@@ -498,6 +614,10 @@ components:
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 1, default: 1 }
+        price_cents:
+          type: integer
+          minimum: 50
+          description: Price per seat in cents, e.g. 500 for $5.00. At least Stripe's $0.50 minimum.
 
     UpdateRideRequest:
       type: object
@@ -506,6 +626,10 @@ components:
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 0 }
+        price_cents:
+          type: integer
+          minimum: 50
+          description: Riders who already paid keep the price they paid.
 
     RequestStatus:
       type: string
@@ -540,3 +664,23 @@ components:
           type: array
           description: This user's requests that have been accepted or declined (rider view)
           items: { $ref: "#/components/schemas/RideRequest" }
+
+    Payment:
+      type: object
+      description: A rider's card payment for their seat.
+      required: [request_id, ride_id, amount_cents, status, client_secret]
+      properties:
+        request_id: { type: string, format: uuid }
+        ride_id: { type: string, format: uuid }
+        amount_cents:
+          type: [integer, "null"]
+          description: What the seat costs, or what was paid once it's paid. Null if the ride has no price.
+        status:
+          type: string
+          enum: [unpaid, processing, paid]
+          description: |
+            `processing` means the rider paid in the browser and Stripe hasn't confirmed it to us yet.
+            Only `POST` returns it; poll `GET` until it says `paid`.
+        client_secret:
+          type: [string, "null"]
+          description: Only from `POST` while unpaid. Pass to Stripe's Payment Element; don't store it.

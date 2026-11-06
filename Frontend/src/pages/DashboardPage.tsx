@@ -3,6 +3,7 @@ import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { RideCard, type Ride } from '../components/RideCard'
+import { YourSeats } from '../components/YourSeats'
 import { headingClass } from '../styles'
 import { useRides } from '../hooks/useRides'
 
@@ -106,6 +107,8 @@ export default function DashboardPage() {
             </button>
           </div>
         </form>
+
+        <YourSeats rides={allRides} />
 
         <section className="mt-14">
           <div className="flex flex-wrap items-center gap-3">

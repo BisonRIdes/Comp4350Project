@@ -79,6 +79,8 @@ export default function PostRidePage() {
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     const priceValue = Number(price)
     if (!price || Number.isNaN(priceValue) || priceValue <= 0) nextErrors.price = 'Enter a price per seat.'
+    // Stripe's smallest card payment in Canadian dollars.
+    else if (priceValue < 0.5) nextErrors.price = 'Riders pay by card, so a seat has to cost at least $0.50.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -104,10 +106,10 @@ export default function PostRidePage() {
           origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
+          price_cents: Math.round(priceValue * 100),
           // Not saved by the backend yet; ignored until CreateRideBody has them:
           origin_label: from.trim(),
           destination_label: DESTINATION,
-          price_cents: Math.round(priceValue * 100),
         }),
       })
       if (response.status === 403) {
@@ -192,7 +194,7 @@ export default function PostRidePage() {
                 type="number"
                 name="price"
                 inputMode="decimal"
-                min="0.25"
+                min="0.50"
                 step="0.25"
                 placeholder="5.00"
                 value={price}
