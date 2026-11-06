@@ -6,7 +6,13 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from util.constants import MIN_PRICE_CENTS, STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
+from util.constants import (
+    MIN_PRICE_CENTS,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    STUDENT_EMAIL_DOMAIN,
+    USERNAME_LENGTH,
+)
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
