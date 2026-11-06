@@ -48,6 +48,33 @@ async def test_list_rides_not_logged_in():
     assert response.status_code == 401
 
 
+# get ride
+
+
+async def test_get_ride():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    rider_id = await make_user("rider")
+
+    response = client.get(f"/rides/{ride_id}", headers=auth(rider_id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == ride_id
+    assert body["driver_id"] == driver_id
+    assert body["origin_point"] == POINT
+    assert body["departure_time"] == TIME
+    assert body["seats"] == 3
+
+
+async def test_get_ride_not_found():
+    user_id = await make_user("rider")
+
+    response = client.get("/rides/nope", headers=auth(user_id))
+
+    assert response.status_code == 404
+
+
 # create ride
 
 
