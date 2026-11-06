@@ -244,6 +244,61 @@ async def test_decline_ride_request_unauthorized():
     assert response.status_code == 403
 
 
+# MY RIDE REQUESTS
+
+
+async def test_my_requests_returns_all_statuses_with_details():
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id)
+    rider_id = await make_user("bob", False)
+    pending_id = await make_request(ride_id, rider_id)
+    accepted_id = await make_request(ride_id, rider_id, "accepted")
+    declined_id = await make_request(ride_id, rider_id, "declined")
+
+    response = client.get("/requests/mine", headers=auth(rider_id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {r["id"]: r["status"] for r in body} == {
+        pending_id: "pending",
+        accepted_id: "accepted",
+        declined_id: "declined",
+    }
+    assert {(r["rider_username"], r["driver_username"]) for r in body} == {("bob", "alice")}
+
+
+async def test_my_requests_excludes_other_riders():
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id)
+    rider_id = await make_user("bob", False)
+    other_rider_id = await make_user("charlie", False)
+    request_id = await make_request(ride_id, rider_id)
+    await make_request(ride_id, other_rider_id)
+
+    response = client.get("/requests/mine", headers=auth(rider_id))
+
+    assert [r["id"] for r in response.json()] == [request_id]
+
+
+async def test_my_requests_empty():
+    # requests on rides this user drives aren't theirs, so the list is still empty
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id)
+    rider_id = await make_user("bob", False)
+    await make_request(ride_id, rider_id)
+
+    response = client.get("/requests/mine", headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_my_requests_not_logged_in():
+    response = client.get("/requests/mine")
+
+    assert response.status_code == 401
+
+
 # CANCEL RIDE REQUEST
 
 
