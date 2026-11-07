@@ -1,7 +1,10 @@
+import pytest
 from sqlalchemy import select
 
 from database import SessionLocal
 from models import User
+
+pytestmark = pytest.mark.regression
 
 
 async def test_create_user():

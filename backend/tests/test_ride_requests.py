@@ -1,8 +1,11 @@
+import pytest
 from sqlalchemy import select
 
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
 from tests.helpers import auth, client, make_registration, make_request, make_ride, make_user
+
+pytestmark = pytest.mark.regression
 
 
 def request_ride(ride_id: str, rider_id: str) -> str:
