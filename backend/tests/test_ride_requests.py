@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Ride, RideRegistration, RideRequest
+from models import RideRegistration, RideRequest
 from tests.helpers import auth, client, make_registration, make_request, make_ride, make_user
 
 
