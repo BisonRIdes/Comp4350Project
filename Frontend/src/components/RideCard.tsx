@@ -4,6 +4,7 @@ import { icons } from './icons'
 // Optional fields aren't returned by GET /rides yet; the card hides them when missing.
 export type Ride = {
   id: string
+  driverId: string
   from?: string
   to?: string
   departure: string // ISO date string

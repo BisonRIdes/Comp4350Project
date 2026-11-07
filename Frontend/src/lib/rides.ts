@@ -19,6 +19,7 @@ export type RideOut = {
 export function toRide(raw: RideOut): Ride {
   return {
     id: String(raw.id),
+    driverId: String(raw.driver_id),
     from: raw.origin_label,
     to: raw.destination_label ?? DESTINATION,
     departure: raw.departure_time,
@@ -35,4 +36,16 @@ export async function fetchUpcomingRides(): Promise<RideOut[]> {
   const data: RideOut[] = await response.json()
   const now = Date.now()
   return data.filter((raw) => new Date(raw.departure_time).getTime() > now)
+}
+
+// The fields PATCH /rides/{id} accepts (UpdateRideBody). Send only the ones that changed.
+export type RideChanges = {
+  origin_point?: { type: 'Point'; coordinates: [number, number] }
+  departure_time?: string
+  seats?: number
+}
+
+// Edit one of the driver's own rides. Returns the response so the page can handle 403, 404 and 422.
+export function updateRide(id: string, changes: RideChanges): Promise<Response> {
+  return apiFetch(`/rides/${id}`, { method: 'PATCH', body: JSON.stringify(changes) })
 }
