@@ -1,7 +1,7 @@
 """Shared setup for API tests: a client with the API key and helpers to seed the DB."""
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -54,7 +54,7 @@ async def make_ride(driver_id: str, seats: int = 2) -> str:
         ride = Ride(
             driver_id=driver_id,
             origin_point=POINT,
-            departure_time=datetime(2026, 11, 1, 14, 30),
+            departure_time=datetime(2026, 11, 1, 14, 30, tzinfo=UTC),
             seats=seats,
         )
         db.add(ride)
