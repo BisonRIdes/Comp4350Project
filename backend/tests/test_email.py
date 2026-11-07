@@ -5,7 +5,11 @@ import urllib.error
 import urllib.request
 from unittest.mock import MagicMock
 
+import pytest
+
 from util.email import RESEND_URL, USER_AGENT, send_verification_email
+
+pytestmark = pytest.mark.regression
 
 
 def fake_urlopen(sent: list):
