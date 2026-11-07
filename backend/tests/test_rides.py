@@ -25,12 +25,16 @@ async def test_list_rides_returns_rides_soonest_first():
     async with SessionLocal() as db:
         db.add(
             Ride(
-                driver_id=driver_id, origin_point=POINT, departure_time=datetime(2026, 12, 1, 9, 0, tzinfo=UTC)
+                driver_id=driver_id,
+                origin_point=POINT,
+                departure_time=datetime(2026, 12, 1, 9, 0, tzinfo=UTC),
             )
         )
         db.add(
             Ride(
-                driver_id=driver_id, origin_point=POINT, departure_time=datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
+                driver_id=driver_id,
+                origin_point=POINT,
+                departure_time=datetime(2026, 11, 1, 9, 0, tzinfo=UTC),
             )
         )
         await db.commit()

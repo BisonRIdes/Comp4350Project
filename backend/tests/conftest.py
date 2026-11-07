@@ -21,6 +21,7 @@ from database import Base, engine
 def pytest_sessionfinish(session, exitstatus):
     _pg.stop()
 
+
 @pytest.fixture(autouse=True)
 def no_real_emails(monkeypatch):
     # tests must never email real students, even if RESEND_API_KEY is set on your machine
