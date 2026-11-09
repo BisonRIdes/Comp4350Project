@@ -29,9 +29,6 @@ async def count_accepted(ride_id: str, db: AsyncSession) -> int:
 
 
 # return a list of all rides for populating the frontend
-
-
-# return a list of all rides for populating the frontend
 @router.get("", response_model=list[RideOut])
 async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[Ride]:
     result = await db.execute(select(Ride).order_by(Ride.departure_time))
