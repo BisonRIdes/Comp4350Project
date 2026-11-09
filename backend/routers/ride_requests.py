@@ -1,15 +1,13 @@
-from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import Row, delete, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideRegistration, RideRequest, User
-from schemas import RideRegistrationOut, RideRequestDetailsOut, RideRequestOut
+from models import Ride, RideDetour, RideRegistration, RideRequest, User
+from schemas import CreateRideRequestBody, RideRegistrationOut, RideRequestOut
 from util.auth import CurrentUser, get_current_user
-from util.request_details import request_details_query
 
 # every ride request route needs a logged-in student
 router = APIRouter(tags=["ride requests"], dependencies=[Depends(get_current_user)])
@@ -49,7 +47,10 @@ async def check_driver(
 # the logged-in rider asks to join a ride
 @router.post("/rides/{ride_id}/requests", status_code=201, response_model=RideRequestOut)
 async def create_ride_request(
-    ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+    ride_id: str,
+    body: CreateRideRequestBody,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> RideRequest:
     # check if ride exists
     ride = await db.get(Ride, ride_id)
@@ -79,6 +80,7 @@ async def create_ride_request(
     ride_request = RideRequest(
         ride_id=ride_id,
         rider_id=user.id,
+        detour_point=body.detour_point.model_dump(),  # so driver can view where to pick up rider
     )
     db.add(ride_request)
     await db.commit()
@@ -109,9 +111,17 @@ async def accept_ride_request(
     ride_registration = RideRegistration(
         ride_id=ride_request.ride_id, rider_id=ride_request.rider_id
     )
+    # create ride_detour where rider will get picked up
+    ride_detour = RideDetour(
+        ride_id=ride_request.ride_id,
+        owner_id=ride_request.rider_id,
+        detour_point=ride_request.detour_point,
+    )
     db.add(ride_registration)
+    db.add(ride_detour)
     await db.commit()
     await db.refresh(ride_registration)
+    await db.refresh(ride_detour)
 
     return ride_registration
 
@@ -131,15 +141,6 @@ async def decline_ride_request(
     await db.refresh(ride_request)
 
 
-# the logged-in user's own requests in every status, including rides that already left
-@router.get("/requests/mine", response_model=list[RideRequestDetailsOut])
-async def list_my_ride_requests(
-    user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
-) -> Sequence[Row]:
-    result = await db.execute(request_details_query().where(RideRequest.rider_id == user.id))
-    return result.all()
-
-
 # rider cancels their own request to join a ride
 @router.delete("/requests/{request_id}/cancel", status_code=204)
 async def cancel_ride_request(
@@ -154,12 +155,16 @@ async def cancel_ride_request(
         raise HTTPException(status_code=403, detail="User is not authorized to cancel this request")
 
     if ride_request.status == "accepted":
-        # pass both conditions to where(); Python's `and` would silently keep only the first one
-        # and remove every rider from the ride
         await db.execute(
             delete(RideRegistration).where(
                 RideRegistration.ride_id == ride_request.ride_id,
                 RideRegistration.rider_id == ride_request.rider_id,
+            )
+        )
+        await db.execute(
+            delete(RideDetour).where(
+                RideDetour.ride_id == ride_request.ride_id,
+                RideDetour.owner_id == ride_request.rider_id,
             )
         )
 
