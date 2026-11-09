@@ -6,8 +6,8 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideRegistration, RideRequest, User
-from schemas import CreateRideBody, RideOut, UpdateRideBody
+from models import Ride, RideDetour, RideRegistration, RideRequest, User
+from schemas import CreateRideBody, RideDetoursOut, RideOut, UpdateRideBody
 from util.auth import CurrentUser, get_current_user
 
 # every rides route needs a logged-in student
@@ -24,15 +24,6 @@ def check_owner(ride: Ride, user: User) -> None:
 async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[Ride]:
     result = await db.execute(select(Ride).order_by(Ride.departure_time))
     return result.scalars().all()
-
-
-# get one ride, e.g. for the ride details page
-@router.get("/{ride_id}", response_model=RideOut)
-async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
-    ride = await db.get(Ride, ride_id)
-    if ride is None:
-        raise HTTPException(status_code=404, detail="Ride not found")
-    return ride
 
 
 # driver can post a ride
@@ -102,3 +93,23 @@ async def delete_ride(
     await db.execute(delete(RideRequest).where(RideRequest.ride_id == ride_id))
     await db.delete(ride)
     await db.commit()
+
+
+# get all detours for a specific ride
+@router.get("/{ride_id}/detours", status_code=200)
+async def get_detours(
+    ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> RideDetoursOut:
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    check_owner(ride, user)
+
+    # get all detours associated with this ride
+    db_detours = await db.execute(select(RideDetour).where(RideDetour.ride_id == ride_id))
+
+    detours = [
+        {"owner_id": d.owner_id, "detour_point": d.detour_point} for d in db_detours.scalars().all()
+    ]
+
+    return RideDetoursOut(ride_id=ride.id, detours=detours)
