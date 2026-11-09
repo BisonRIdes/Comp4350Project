@@ -9,7 +9,7 @@ import { errorNotice, headingClass, primaryButton } from '../styles'
 import { readError } from '../lib/api'
 import { getUser } from '../lib/auth'
 import { geocode, reverseGeocode } from '../lib/geocode'
-import { DESTINATION, fetchRide, toLocalInputValue, updateRide, type RideChanges, type RideOut } from '../lib/rides'
+import { deleteRide, DESTINATION, fetchRide, toLocalInputValue, updateRide, type RideChanges, type RideOut } from '../lib/rides'
 
 type Errors = { from?: string; departure?: string }
 
@@ -31,6 +31,10 @@ export default function EditRidePage() {
   const [errors, setErrors] = useState<Errors>({})
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
+
+  // Deleting takes two clicks so a driver can't remove a ride by accident.
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const clearError = (field: keyof Errors) => setErrors((current) => ({ ...current, [field]: undefined }))
 
@@ -125,6 +129,33 @@ export default function EditRidePage() {
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true)
+    setNotice('')
+    try {
+      const response = await deleteRide(rideId)
+      if (response.status === 409) {
+        setNotice("You can't delete this ride because riders have already been accepted.")
+        return
+      }
+      if (response.status === 403) {
+        setNotice('You can only delete your own rides.')
+        return
+      }
+      // 404 means it's already gone, so the dashboard is the right place either way.
+      if (!response.ok && response.status !== 404) {
+        setNotice(await readError(response))
+        return
+      }
+      navigate('/dashboard')
+    } catch {
+      setNotice("Couldn't reach the server. Check your connection and try again.")
+    } finally {
+      setDeleting(false)
+      setConfirmingDelete(false)
+    }
+  }
+
   return (
     <div className="min-h-svh bg-white text-ink">
       <DashboardNavbar />
@@ -188,6 +219,39 @@ export default function EditRidePage() {
               {submitting ? 'Saving…' : 'Save changes'}
               <Icon className="h-4 w-4">{icons.arrow}</Icon>
             </button>
+
+            {confirmingDelete ? (
+              <div className="rounded-2xl bg-danger/5 p-4 text-center ring-1 ring-danger/20">
+                <p className="text-sm font-medium text-danger">Delete this ride? This can't be undone.</p>
+                <div className="mt-3 flex justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deleting}
+                    className="rounded-full bg-white px-5 py-2.5 text-sm font-medium text-ink ring-1 ring-black/10 transition duration-300 hover:ring-black/30 disabled:opacity-60"
+                  >
+                    Keep ride
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="rounded-full bg-danger px-5 py-2.5 text-sm font-medium text-white transition duration-300 hover:opacity-90 disabled:opacity-60"
+                  >
+                    {deleting ? 'Deleting…' : 'Yes, delete'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="w-full rounded-full py-3 text-[15px] font-medium text-danger transition-colors duration-300 hover:bg-danger/5"
+              >
+                Delete ride
+              </button>
+            )}
+
             {notice && (
               <p role="alert" className={errorNotice}>
                 {notice}
