@@ -60,3 +60,8 @@ export type RideChanges = {
 export function updateRide(id: string, changes: RideChanges): Promise<Response> {
   return apiFetch(`/rides/${id}`, { method: 'PATCH', body: JSON.stringify(changes) })
 }
+
+// Delete one of the driver's own rides. Returns the response so the page can handle 403, 404 and 409.
+export function deleteRide(id: string): Promise<Response> {
+  return apiFetch(`/rides/${id}`, { method: 'DELETE' })
+}
