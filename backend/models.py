@@ -46,6 +46,7 @@ class RideRequest(Base):
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), index=True)
     rider_id: Mapped[str] = mapped_column(ForeignKey(user_id), index=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")
+    detour_point: Mapped[dict | None] = mapped_column(JSON, default=None, nullable=True)
 
 
 class RideRegistration(Base):
@@ -53,3 +54,11 @@ class RideRegistration(Base):
 
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
     rider_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
+
+
+class RideDetour(Base):
+    __tablename__ = "ride_detours"
+
+    ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
+    detour_point: Mapped[dict] = mapped_column(JSON)

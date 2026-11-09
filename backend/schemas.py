@@ -78,6 +78,13 @@ class RideRequestOut(BaseModel):
     ride_id: str
     rider_id: str
     status: Literal["pending", "accepted", "declined"]
+    detour_point: GeoJSONPoint | None = None
+
+
+class CreateRideRequestBody(BaseModel):
+    """Request body for creating a ride request"""
+
+    detour_point: GeoJSONPoint
 
 
 class RideRegistrationOut(BaseModel):
@@ -89,20 +96,27 @@ class RideRegistrationOut(BaseModel):
     rider_id: str
 
 
-class RideRequestDetailsOut(RideRequestOut):
-    """A ride request with who asked, who drives, and when and where the ride leaves."""
+class Detour(BaseModel):
+    """information about a single detour"""
 
-    rider_username: str
-    driver_username: str
-    departure_time: datetime
-    origin_point: GeoJSONPoint
+    owner_id: str
+    detour_point: GeoJSONPoint
+
+
+class RideDetoursOut(BaseModel):
+    """information about detours associated with a ride"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ride_id: str
+    detours: list[Detour]
 
 
 class UpdatesOut(BaseModel):
     """Everything the page needs to refresh for one user."""
 
-    pending_requests: list[RideRequestDetailsOut]
-    request_updates: list[RideRequestDetailsOut]
+    pending_requests: list[RideRequestOut]
+    request_updates: list[RideRequestOut]
 
 
 class CreateUserRequest(BaseModel):
