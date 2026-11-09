@@ -29,6 +29,12 @@ export function toRide(raw: RideOut): Ride {
   }
 }
 
+// <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm" in local time.
+export function toLocalInputValue(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
 // Rides that haven't left yet, in the API's shape.
 export async function fetchUpcomingRides(): Promise<RideOut[]> {
   const response = await apiFetch('/rides')
@@ -36,6 +42,11 @@ export async function fetchUpcomingRides(): Promise<RideOut[]> {
   const data: RideOut[] = await response.json()
   const now = Date.now()
   return data.filter((raw) => new Date(raw.departure_time).getTime() > now)
+}
+
+// One ride by id (GET /rides/{id}). Returns the response so the page can handle 404.
+export function fetchRide(id: string): Promise<Response> {
+  return apiFetch(`/rides/${id}`)
 }
 
 // The fields PATCH /rides/{id} accepts (UpdateRideBody). Send only the ones that changed.
