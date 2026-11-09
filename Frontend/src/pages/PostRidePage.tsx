@@ -13,8 +13,6 @@ import { SeatStepper } from '../components/SeatStepper'
 
 type Errors = { from?: string; departure?: string; price?: string }
 
-
-
 export default function PostRidePage() {
   const navigate = useNavigate()
   // The route requires a signed-in user (see RequireAuth), so this is only null if storage was cleared mid-visit.

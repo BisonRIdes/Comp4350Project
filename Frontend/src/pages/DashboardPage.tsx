@@ -148,7 +148,7 @@ export default function DashboardPage() {
                     isOwn={ride.driverId === user?.id}
                     // Drivers go to the edit page when they click their own ride.
                     onClick={ride.driverId === user?.id ? () => navigate(`/rides/${ride.id}/edit`) : undefined}
-                  />                
+                  />
                   </li>
               ))}
             </ul>

@@ -55,9 +55,11 @@ export default function EditRidePage() {
         setDeparture(toLocalInputValue(new Date(ride.departure_time)))
         setSeats(ride.seats)
 
+
         // The backend only stores coordinates, so turn them back into a place name to prefill.
+        // If the lookup fails the box stays empty, which still lets the driver save other changes.
         if (ride.origin_point) {
-          const name = (await reverseGeocode(ride.origin_point.coordinates)) ?? ''
+          const name = (await reverseGeocode(ride.origin_point.coordinates).catch(() => null)) ?? ''
           setFrom(name)
           setOriginalFrom(name)
         }
