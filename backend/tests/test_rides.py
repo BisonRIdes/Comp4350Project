@@ -224,6 +224,36 @@ async def test_edit_ride_negative_seats():
     assert response.status_code == 422
 
 
+async def test_edit_ride_seats_below_accepted_riders_is_blocked():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    async with SessionLocal() as db:
+        for name in ("rider1", "rider2"):
+            rider_id = await make_user(name)
+            db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
+        await db.commit()
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 1}, headers=auth(driver_id))
+
+    assert response.status_code == 409
+    async with SessionLocal() as db:
+        assert (await db.get(Ride, ride_id)).seats == 3
+
+
+async def test_edit_ride_seats_equal_to_accepted_riders():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id, seats=3)
+    async with SessionLocal() as db:
+        db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
+        await db.commit()
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 1}, headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json()["seats"] == 1
+
+
 # delete ride
 
 
