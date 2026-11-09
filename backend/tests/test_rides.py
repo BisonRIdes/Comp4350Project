@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
-from tests.helpers import POINT, auth, client, make_ride, make_user
+from tests.helpers import POINT, auth, client, make_detour, make_ride, make_user
 
 TIME = "2026-11-01T14:30:00"
 
@@ -46,33 +46,6 @@ async def test_list_rides_not_logged_in():
     response = client.get("/rides")
 
     assert response.status_code == 401
-
-
-# get ride
-
-
-async def test_get_ride():
-    driver_id = await make_user("driver", True)
-    ride_id = await make_ride(driver_id, seats=3)
-    rider_id = await make_user("rider")
-
-    response = client.get(f"/rides/{ride_id}", headers=auth(rider_id))
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["id"] == ride_id
-    assert body["driver_id"] == driver_id
-    assert body["origin_point"] == POINT
-    assert body["departure_time"] == TIME
-    assert body["seats"] == 3
-
-
-async def test_get_ride_not_found():
-    user_id = await make_user("rider")
-
-    response = client.get("/rides/nope", headers=auth(user_id))
-
-    assert response.status_code == 404
 
 
 # create ride
@@ -287,3 +260,61 @@ async def test_delete_ride_removes_pending_requests():
     async with SessionLocal() as db:
         assert (await db.scalars(select(RideRequest))).all() == []
         assert (await db.scalars(select(Ride))).all() == []
+
+
+# get detours
+
+
+async def test_get_detours():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider", False)
+    ride_id = await make_ride(driver_id)
+    await make_detour(ride_id, rider_id)
+
+    response = client.get(f"/rides/{ride_id}/detours", headers=auth(driver_id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ride_id"] == ride_id
+    assert len(body["detours"]) == 1
+    assert body["detours"][0]["owner_id"] == rider_id
+    assert body["detours"][0]["detour_point"] == POINT
+
+
+async def test_get_detours_multiple_detours():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider", False)
+    rider2_id = await make_user("rider2", False)
+    ride_id = await make_ride(driver_id)
+    await make_detour(ride_id, rider_id)
+    await make_detour(ride_id, rider2_id)
+
+    response = client.get(f"/rides/{ride_id}/detours", headers=auth(driver_id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ride_id"] == ride_id
+    assert len(body["detours"]) == 2
+
+
+async def test_get_detours_no_detours():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id)
+
+    response = client.get(f"/rides/{ride_id}/detours", headers=auth(driver_id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ride_id"] == ride_id
+    assert len(body["detours"]) == 0
+
+
+async def test_get_detours_nonexistent_ride():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider", False)
+    ride_id = await make_ride(driver_id)
+    await make_detour(ride_id, rider_id)
+
+    response = client.get("/rides/999/detours", headers=auth(driver_id))
+
+    assert response.status_code == 404

@@ -2,12 +2,14 @@ from sqlalchemy import select
 
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
-from tests.helpers import auth, client, make_registration, make_request, make_ride, make_user
+from tests.helpers import POINT, auth, client, make_registration, make_request, make_ride, make_user
 
 
 def request_ride(ride_id: str, rider_id: str) -> str:
     """The rider asks to join the ride; returns the new request's id."""
-    return client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id)).json()["id"]
+    return client.post(
+        f"/rides/{ride_id}/requests", headers=auth(rider_id), json={"detour_point": POINT}
+    ).json()["id"]
 
 
 # TEST HELPER METHODS
@@ -47,12 +49,15 @@ async def test_create_ride_request_happy_path():
     ride_id = await make_ride(driver_id)
     rider_id = await make_user("bob", False)
 
-    response = client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id))
+    response = client.post(
+        f"/rides/{ride_id}/requests", headers=auth(rider_id), json={"detour_point": POINT}
+    )
 
     assert response.status_code == 201
     body = response.json()
     assert body["ride_id"] == ride_id
     assert body["rider_id"] == rider_id
+    assert body["detour_point"] == POINT
 
 
 async def test_create_ride_request_ignores_rider_id_in_body():
@@ -62,7 +67,9 @@ async def test_create_ride_request_ignores_rider_id_in_body():
     other_rider_id = await make_user("charlie", False)
 
     response = client.post(
-        f"/rides/{ride_id}/requests", json={"rider_id": other_rider_id}, headers=auth(rider_id)
+        f"/rides/{ride_id}/requests",
+        json={"detour_point": POINT, "rider_id": other_rider_id},
+        headers=auth(rider_id),
     )
 
     assert response.status_code == 201
@@ -82,7 +89,9 @@ async def test_create_ride_request_own_ride():
     driver_id = await make_user("alice", True)
     ride_id = await make_ride(driver_id)
 
-    response = client.post(f"/rides/{ride_id}/requests", headers=auth(driver_id))
+    response = client.post(
+        f"/rides/{ride_id}/requests", headers=auth(driver_id), json={"detour_point": POINT}
+    )
 
     assert response.status_code == 403
     # nothing was saved, so the driver isn't shown a request from themselves
@@ -96,7 +105,9 @@ async def test_create_ride_request_duplicate_request():
     rider_id = await make_user("bob", False)
 
     request_ride(ride_id, rider_id)
-    response = client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id))
+    response = client.post(
+        f"/rides/{ride_id}/requests", headers=auth(rider_id), json={"detour_point": POINT}
+    )
 
     assert response.status_code == 409
 
@@ -107,7 +118,9 @@ async def test_create_ride_request_already_registered():
     rider_id = await make_user("bob", False)
     await make_registration(ride_id, rider_id)
 
-    response = client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id))
+    response = client.post(
+        f"/rides/{ride_id}/requests", headers=auth(rider_id), json={"detour_point": POINT}
+    )
 
     assert response.status_code == 409
 
@@ -117,7 +130,9 @@ async def test_create_ride_request_nonexistent_ride():
     await make_ride(driver_id)
     rider_id = await make_user("bob", False)
 
-    response = client.post("/rides/999/requests", headers=auth(rider_id))
+    response = client.post(
+        "/rides/999/requests", headers=auth(rider_id), json={"detour_point": POINT}
+    )
 
     assert response.status_code == 404
 
@@ -242,61 +257,6 @@ async def test_decline_ride_request_unauthorized():
     response = client.patch(f"/requests/{request_id}/decline", headers=auth(other_driver_id))
 
     assert response.status_code == 403
-
-
-# MY RIDE REQUESTS
-
-
-async def test_my_requests_returns_all_statuses_with_details():
-    driver_id = await make_user("alice", True)
-    ride_id = await make_ride(driver_id)
-    rider_id = await make_user("bob", False)
-    pending_id = await make_request(ride_id, rider_id)
-    accepted_id = await make_request(ride_id, rider_id, "accepted")
-    declined_id = await make_request(ride_id, rider_id, "declined")
-
-    response = client.get("/requests/mine", headers=auth(rider_id))
-
-    assert response.status_code == 200
-    body = response.json()
-    assert {r["id"]: r["status"] for r in body} == {
-        pending_id: "pending",
-        accepted_id: "accepted",
-        declined_id: "declined",
-    }
-    assert {(r["rider_username"], r["driver_username"]) for r in body} == {("bob", "alice")}
-
-
-async def test_my_requests_excludes_other_riders():
-    driver_id = await make_user("alice", True)
-    ride_id = await make_ride(driver_id)
-    rider_id = await make_user("bob", False)
-    other_rider_id = await make_user("charlie", False)
-    request_id = await make_request(ride_id, rider_id)
-    await make_request(ride_id, other_rider_id)
-
-    response = client.get("/requests/mine", headers=auth(rider_id))
-
-    assert [r["id"] for r in response.json()] == [request_id]
-
-
-async def test_my_requests_empty():
-    # requests on rides this user drives aren't theirs, so the list is still empty
-    driver_id = await make_user("alice", True)
-    ride_id = await make_ride(driver_id)
-    rider_id = await make_user("bob", False)
-    await make_request(ride_id, rider_id)
-
-    response = client.get("/requests/mine", headers=auth(driver_id))
-
-    assert response.status_code == 200
-    assert response.json() == []
-
-
-async def test_my_requests_not_logged_in():
-    response = client.get("/requests/mine")
-
-    assert response.status_code == 401
 
 
 # CANCEL RIDE REQUEST

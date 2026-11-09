@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from database import SessionLocal
 from main import app
-from models import Ride, RideRegistration, RideRequest, User
+from models import Ride, RideDetour, RideRegistration, RideRequest, User
 from util.security import hash_password
 from util.tokens import create_token
 
@@ -74,4 +74,11 @@ async def make_registration(ride: str, rider: str):
     async with SessionLocal() as db:
         reg = RideRegistration(ride_id=ride, rider_id=rider)
         db.add(reg)
+        await db.commit()
+
+
+async def make_detour(ride: str, owner: str):
+    async with SessionLocal() as db:
+        detour = RideDetour(ride_id=ride, owner_id=owner, detour_point=POINT)
+        db.add(detour)
         await db.commit()
