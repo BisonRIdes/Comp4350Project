@@ -1,14 +1,16 @@
+from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import Row, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Payment, Ride, RideRegistration, RideRequest, User
-from schemas import RideRegistrationOut, RideRequestOut
+from schemas import RideRegistrationOut, RideRequestDetailsOut, RideRequestOut
 from util import stripe_api
 from util.auth import CurrentUser, get_current_user
+from util.request_details import request_details_query
 
 # every ride request route needs a logged-in student
 router = APIRouter(tags=["ride requests"], dependencies=[Depends(get_current_user)])
@@ -128,6 +130,15 @@ async def decline_ride_request(
     ride_request.status = "declined"
     await db.commit()
     await db.refresh(ride_request)
+
+
+# the logged-in user's own requests in every status, including rides that already left
+@router.get("/requests/mine", response_model=list[RideRequestDetailsOut])
+async def list_my_ride_requests(
+    user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> Sequence[Row]:
+    result = await db.execute(request_details_query().where(RideRequest.rider_id == user.id))
+    return result.all()
 
 
 # rider cancels their own request to join a ride

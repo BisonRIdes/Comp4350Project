@@ -196,6 +196,18 @@ paths:
   /rides/{ride_id}:
     parameters:
       - $ref: "#/components/parameters/RideId"
+    get:
+      tags: [Rides]
+      operationId: getRide
+      summary: Get one ride, e.g. for the ride details page
+      responses:
+        "200":
+          description: The ride
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ride" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Rides]
       operationId: updateRide
@@ -257,6 +269,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /requests/mine:
+    get:
+      tags: [Requests]
+      operationId: listMyRideRequests
+      summary: The logged-in user's own ride requests, soonest ride first
+      description: Every status (pending, accepted and declined), including rides that already left.
+      responses:
+        "200":
+          description: This user's requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RideRequestDetails" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /requests/{request_id}/accept:
     parameters:
@@ -644,6 +672,18 @@ components:
         rider_id: { type: string, format: uuid }
         status: { $ref: "#/components/schemas/RequestStatus" }
 
+    RideRequestDetails:
+      description: A ride request with who asked, who drives, and when and where the ride leaves.
+      allOf:
+        - $ref: "#/components/schemas/RideRequest"
+        - type: object
+          required: [rider_username, driver_username, departure_time, origin_point]
+          properties:
+            rider_username: { type: string, description: The student who made the request }
+            driver_username: { type: string, description: The student driving the ride }
+            departure_time: { type: string, format: date-time, description: When the ride leaves }
+            origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+
     RideRegistration:
       type: object
       description: A rider who has been accepted onto a ride.
@@ -659,11 +699,11 @@ components:
         pending_requests:
           type: array
           description: Requests on this user's rides that are still waiting for a response (driver view)
-          items: { $ref: "#/components/schemas/RideRequest" }
+          items: { $ref: "#/components/schemas/RideRequestDetails" }
         request_updates:
           type: array
           description: This user's requests that have been accepted or declined (rider view)
-          items: { $ref: "#/components/schemas/RideRequest" }
+          items: { $ref: "#/components/schemas/RideRequestDetails" }
 
     Payment:
       type: object

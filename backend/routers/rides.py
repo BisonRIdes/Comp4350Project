@@ -26,6 +26,15 @@ async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[R
     return result.scalars().all()
 
 
+# get one ride, e.g. for the ride details page
+@router.get("/{ride_id}", response_model=RideOut)
+async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    return ride
+
+
 # driver can post a ride
 @router.post("", status_code=201, response_model=RideOut)
 async def create_ride(
