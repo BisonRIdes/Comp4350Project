@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -59,7 +59,7 @@ async def make_ride(driver_id: str, seats: int = 2, price_cents: int | None = No
         ride = Ride(
             driver_id=driver_id,
             origin_point=POINT,
-            departure_time=datetime(2026, 11, 1, 14, 30),
+            departure_time=datetime(2026, 11, 1, 14, 30, tzinfo=UTC),
             seats=seats,
             price_cents=price_cents,
         )

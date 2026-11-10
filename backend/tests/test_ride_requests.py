@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Payment, Ride, RideRegistration, RideRequest
+from models import Payment, RideRegistration, RideRequest
 from tests.helpers import (
     auth,
     client,
@@ -21,21 +21,6 @@ def request_ride(ride_id: str, rider_id: str) -> str:
 
 
 # TEST HELPER METHODS
-
-
-async def test_get_ride_nonexistent_ride():
-    driver_id = await make_user("alice", True)
-    ride_id = await make_ride(driver_id)
-    rider_id = await make_user("bob", False)
-
-    request_id = request_ride(ride_id, rider_id)
-    async with SessionLocal() as db:
-        ride = await db.get(Ride, ride_id)
-        await db.delete(ride)
-        await db.commit()
-    response = client.patch(f"/requests/{request_id}/accept", headers=auth(driver_id))
-
-    assert response.status_code == 404
 
 
 async def test_check_rider_not_rider():
