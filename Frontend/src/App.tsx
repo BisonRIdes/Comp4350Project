@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage'
 import VerifyPage from './pages/VerifyPage'
 import EditRidePage from './pages/EditRidePage'
 import { GuestOnly, RequireAuth } from './components/RouteGuards'
+import { UpdatesProvider } from './components/UpdatesProvider'
 
 // Start each new page at the top instead of keeping the previous scroll position.
 function ScrollToTop() {
@@ -26,17 +27,19 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
-        <Route path="/signup" element={<GuestOnly><SignupPage /></GuestOnly>} />
-        <Route path="/verify" element={<VerifyPage />} />
-        <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-        <Route path="/post-ride" element={<RequireAuth><PostRidePage /></RequireAuth>} />
-        <Route path="/rides/:rideId/edit" element={<RequireAuth><EditRidePage /></RequireAuth>} />
-        <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
-        <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-      </Routes>
+      <UpdatesProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
+          <Route path="/signup" element={<GuestOnly><SignupPage /></GuestOnly>} />
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="/post-ride" element={<RequireAuth><PostRidePage /></RequireAuth>} />
+          <Route path="/rides/:rideId/edit" element={<RequireAuth><EditRidePage /></RequireAuth>} />
+          <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        </Routes>
+      </UpdatesProvider>
     </BrowserRouter>
   )
 }
