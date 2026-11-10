@@ -1,7 +1,10 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 from tests.helpers import POINT, auth, client, make_request, make_ride, make_user
+
+pytestmark = pytest.mark.regression
 
 
 async def test_updates_not_logged_in():

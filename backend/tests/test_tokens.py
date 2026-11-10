@@ -1,4 +1,8 @@
+import pytest
+
 from util.tokens import create_token, read_token
+
+pytestmark = pytest.mark.regression
 
 
 def test_token_round_trip():
