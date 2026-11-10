@@ -39,7 +39,7 @@ function App() {
           <Route path="/rides/:rideId/edit" element={<RequireAuth><EditRidePage /></RequireAuth>} />
           <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-        <Route path="/requests/:requestId/pay" element={<RequireAuth><PaymentPage /></RequireAuth>} />
+          <Route path="/requests/:requestId/pay" element={<RequireAuth><PaymentPage /></RequireAuth>} />
         </Routes>
       </UpdatesProvider>
     </BrowserRouter>
