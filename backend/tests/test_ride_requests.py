@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Payment, Ride, RideRegistration, RideRequest
+from models import Payment, RideRegistration, RideRequest
 from tests.helpers import (
     auth,
     client,
