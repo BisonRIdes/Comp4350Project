@@ -57,6 +57,7 @@ async def create_ride(
         origin_point=body.origin_point.model_dump(),
         departure_time=body.departure_time,
         seats=body.seats,
+        price_cents=body.price_cents,
     )
     db.add(ride)
     await db.commit()

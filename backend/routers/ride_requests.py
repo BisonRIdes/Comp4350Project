@@ -6,8 +6,9 @@ from sqlalchemy import Row, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideRegistration, RideRequest, User
+from models import Payment, Ride, RideRegistration, RideRequest, User
 from schemas import RideRegistrationOut, RideRequestDetailsOut, RideRequestOut
+from util import stripe_api
 from util.auth import CurrentUser, get_current_user
 from util.request_details import request_details_query
 
@@ -152,6 +153,16 @@ async def cancel_ride_request(
 
     if ride_request.rider_id != user.id:
         raise HTTPException(status_code=403, detail="User is not authorized to cancel this request")
+
+    payment = await db.get(Payment, request_id)
+    if payment is not None:
+        # money first: if Stripe can't refund right now, the rider keeps the seat and can retry
+        if payment.status == "paid":
+            await stripe_api.refund_payment(payment.stripe_payment_id)
+        else:
+            # so a payment form still open in another tab can't charge them later
+            await stripe_api.cancel_payment(payment.stripe_payment_id)
+        await db.execute(delete(Payment).where(Payment.request_id == request_id))
 
     if ride_request.status == "accepted":
         # pass both conditions to where(); Python's `and` would silently keep only the first one
