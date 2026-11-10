@@ -1,15 +1,25 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from testcontainers.community.postgres import PostgresContainer
 
 # use the test env vars
 # must preceed the database import as it loads the env vars
 load_dotenv(Path(__file__).parent.parent / ".env.test", override=True)
 
+_pg = PostgresContainer("postgres:16-alpine", driver="asyncpg")
+_pg.start()
+os.environ["DATABASE_URL"] = _pg.get_connection_url()
+
 import pytest
 import pytest_asyncio
 
 from database import Base, engine
+
+
+def pytest_sessionfinish(session, exitstatus):
+    _pg.stop()
 
 
 @pytest.fixture(autouse=True)
@@ -18,10 +28,37 @@ def no_real_emails(monkeypatch):
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def no_real_payments(monkeypatch):
+    # same for Stripe: tests that need it set fake keys and replace the calls
+    monkeypatch.delenv("STRIPE_SECRET_KEY", raising=False)
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+
+
+@pytest.fixture
+def fake_stripe(monkeypatch):
+    """Replace every call to Stripe with a FakeStripe (see helpers.py)."""
+    from tests.helpers import FakeStripe
+    from util import stripe_api
+
+    fake = FakeStripe()
+    for name in (
+        "start_payment",
+        "get_payment",
+        "change_amount",
+        "cancel_payment",
+        "refund_payment",
+    ):
+        monkeypatch.setattr(stripe_api, name, getattr(fake, name))
+    return fake
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def fresh_database():
     # sanity check
-    assert "test" in str(engine.url), f"Refusing to reset non-test DB: {engine.url}"
+    assert engine.url.host in ("localhost", "127.0.0.1"), (
+        f"Refusing to reset non-local DB: {engine.url}"
+    )
     # create new db
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -63,7 +63,7 @@ async def test_updates_includes_request_details():
     expected = {
         "rider_username": "rider",
         "driver_username": "driver",
-        "departure_time": "2026-11-01T14:30:00",
+        "departure_time": "2026-11-01T14:30:00Z",
         "origin_point": POINT,
     }
 

@@ -37,6 +37,8 @@ class Ride(Base):
     origin_point: Mapped[dict] = mapped_column(JSON)
     departure_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     seats: Mapped[int] = mapped_column(default=1)
+    # What each rider pays for a seat, in cents (CAD). Rides posted before prices were saved have none.
+    price_cents: Mapped[int | None] = mapped_column(default=None)
 
 
 class RideRequest(Base):
@@ -53,3 +55,15 @@ class RideRegistration(Base):
 
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
     rider_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
+
+
+class Payment(Base):
+    """A rider's card payment for their seat on a ride. Stripe keeps the card details and history."""
+
+    __tablename__ = "payments"
+
+    request_id: Mapped[str] = mapped_column(ForeignKey("ride_requests.id"), primary_key=True)
+    stripe_payment_id: Mapped[str] = mapped_column(String(255), unique=True)
+    amount_cents: Mapped[int]
+    # "unpaid" until Stripe's webhook says the money arrived, then "paid"
+    status: Mapped[str] = mapped_column(String(20), default="unpaid")
