@@ -8,6 +8,7 @@ import PostRidePage from './pages/PostRidePage'
 import MapPage from './pages/MapPage'
 import ProfilePage from './pages/ProfilePage'
 import VerifyPage from './pages/VerifyPage'
+import EditRidePage from './pages/EditRidePage'
 import { GuestOnly, RequireAuth } from './components/RouteGuards'
 
 // Start each new page at the top instead of keeping the previous scroll position.
@@ -32,6 +33,7 @@ function App() {
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/post-ride" element={<RequireAuth><PostRidePage /></RequireAuth>} />
+        <Route path="/rides/:rideId/edit" element={<RequireAuth><EditRidePage /></RequireAuth>} />
         <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
       </Routes>

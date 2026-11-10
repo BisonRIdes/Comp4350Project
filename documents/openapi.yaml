@@ -221,6 +221,11 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/NotYourRide" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The new seat count is lower than the number of riders already accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "422": { $ref: "#/components/responses/ValidationError" }
     delete:
       tags: [Rides]
