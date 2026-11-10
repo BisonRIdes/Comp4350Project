@@ -52,6 +52,33 @@ async def test_list_rides_not_logged_in():
     assert response.status_code == 401
 
 
+# get ride
+
+
+async def test_get_ride():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    rider_id = await make_user("rider")
+
+    response = client.get(f"/rides/{ride_id}", headers=auth(rider_id))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == ride_id
+    assert body["driver_id"] == driver_id
+    assert body["origin_point"] == POINT
+    assert body["departure_time"] == TIME
+    assert body["seats"] == 3
+
+
+async def test_get_ride_not_found():
+    user_id = await make_user("rider")
+
+    response = client.get("/rides/nope", headers=auth(user_id))
+
+    assert response.status_code == 404
+
+
 # create ride
 
 
@@ -85,6 +112,44 @@ async def test_create_ride_defaults_to_one_seat():
 
     assert response.status_code == 201
     assert response.json()["seats"] == 1
+
+
+async def test_create_ride_saves_the_price_per_seat():
+    driver_id = await make_user("driver", True)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME, "price_cents": 500},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["price_cents"] == 500
+
+
+async def test_create_ride_without_a_price():
+    driver_id = await make_user("driver", True)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["price_cents"] is None
+
+
+async def test_create_ride_price_below_stripes_minimum():
+    driver_id = await make_user("driver", True)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME, "price_cents": 49},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 422
 
 
 async def test_create_ride_ignores_driver_id_in_body():
@@ -163,6 +228,16 @@ async def test_edit_ride_changes_point_and_time():
     assert response.json()["departure_time"] == "2026-11-02T08:00:00Z"
 
 
+async def test_edit_ride_price():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, price_cents=500)
+
+    response = client.patch(f"/rides/{ride_id}", json={"price_cents": 650}, headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json()["price_cents"] == 650
+
+
 async def test_edit_ride_not_found():
     driver_id = await make_user("driver", True)
 
@@ -199,6 +274,36 @@ async def test_edit_ride_negative_seats():
     response = client.patch(f"/rides/{ride_id}", json={"seats": -1}, headers=auth(driver_id))
 
     assert response.status_code == 422
+
+
+async def test_edit_ride_seats_below_accepted_riders_is_blocked():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    async with SessionLocal() as db:
+        for name in ("rider1", "rider2"):
+            rider_id = await make_user(name)
+            db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
+        await db.commit()
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 1}, headers=auth(driver_id))
+
+    assert response.status_code == 409
+    async with SessionLocal() as db:
+        assert (await db.get(Ride, ride_id)).seats == 3
+
+
+async def test_edit_ride_seats_equal_to_accepted_riders():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id, seats=3)
+    async with SessionLocal() as db:
+        db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
+        await db.commit()
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 1}, headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json()["seats"] == 1
 
 
 # delete ride

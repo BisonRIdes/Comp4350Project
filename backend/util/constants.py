@@ -12,3 +12,6 @@ STUDENT_EMAIL_DOMAIN: Final = "myumanitoba.ca"
 ACCESS_TOKEN_HOURS: Final = 24
 # How long the link in the verification email works.
 VERIFY_TOKEN_HOURS: Final = 24
+
+# Stripe's smallest card payment in Canadian dollars is $0.50, so a seat can't cost less.
+MIN_PRICE_CENTS: Final = 50
