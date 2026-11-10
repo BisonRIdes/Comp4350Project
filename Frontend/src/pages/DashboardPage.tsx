@@ -6,6 +6,8 @@ import { RideCard, type Ride } from '../components/RideCard'
 import { YourSeats } from '../components/YourSeats'
 import { headingClass } from '../styles'
 import { useRides } from '../hooks/useRides'
+import { useNavigate } from 'react-router'
+import { getUser } from '../lib/auth'
 
 type Search = { from: string; to: string; departure: string }
 const emptySearch: Search = { from: '', to: '', departure: '' }
@@ -45,6 +47,8 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 
 export default function DashboardPage() {
   const { rides: allRides, loading, error: loadError } = useRides()
+  const navigate = useNavigate()
+  const user = getUser()
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
 
@@ -142,8 +146,13 @@ export default function DashboardPage() {
             <ul className="mt-6 space-y-3">
               {rides.map((ride) => (
                 <li key={ride.id}>
-                  <RideCard ride={ride} />
-                </li>
+                  <RideCard
+                    ride={ride}
+                    isOwn={ride.driverId === user?.id}
+                    // Drivers go to the edit page when they click their own ride.
+                    onClick={ride.driverId === user?.id ? () => navigate(`/rides/${ride.id}/edit`) : undefined}
+                  />
+                  </li>
               ))}
             </ul>
           ) : (
