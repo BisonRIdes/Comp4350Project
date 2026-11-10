@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
@@ -7,7 +8,7 @@ import { TextField } from '../components/TextField'
 import { errorNotice, headingClass, primaryButton } from '../styles'
 import { apiFetch, readError } from '../lib/api'
 import { getUser } from '../lib/auth'
-import { geocode } from '../lib/geocode'
+import type { Place } from '../lib/places'
 import { DESTINATION, toLocalInputValue } from '../lib/rides'
 import { SeatStepper } from '../components/SeatStepper'
 
@@ -20,6 +21,8 @@ export default function PostRidePage() {
   // The datetime picker's earliest choice: now, when the page opened.
   const [earliestDeparture] = useState(() => toLocalInputValue(new Date()))
   const [from, setFrom] = useState('')
+  // The suggestion the driver picked; cleared as soon as they edit the text again.
+  const [place, setPlace] = useState<Place | null>(null)
   const [departure, setDeparture] = useState('')
   const [seats, setSeats] = useState(3)
   const [price, setPrice] = useState('')
@@ -33,6 +36,7 @@ export default function PostRidePage() {
     event.preventDefault()
     const nextErrors: Errors = {}
     if (!from.trim()) nextErrors.from = 'Enter where you are leaving from.'
+    else if (!place) nextErrors.from = 'Pick an address from the list so riders know exactly where to meet you.'
     if (!departure) nextErrors.departure = 'Choose when you are leaving.'
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     const priceValue = Number(price)
@@ -42,31 +46,24 @@ export default function PostRidePage() {
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    if (!user) {
-      navigate('/login')
+    if (!user || !place) {
+      if (!user) navigate('/login')
       return
     }
 
     setSubmitting(true)
     setNotice('')
     try {
-      // Turn the typed starting point into coordinates for origin_point.
-      const coordinates = await geocode(from.trim())
-      if (!coordinates) {
-        setErrors({ from: 'We couldn\'t find that place in Manitoba. Try adding the town, e.g. "Main St, Steinbach".' })
-        return
-      }
-
       const response = await apiFetch('/rides', {
         method: 'POST',
         body: JSON.stringify({
           // Fields create_ride reads today. The driver is whoever is logged in (from the token).
-          origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
+          origin_point: { type: 'Point', coordinates: place.coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
           price_cents: Math.round(priceValue * 100),
-          // Not saved by the backend yet; ignored until CreateRideBody has them:
-          origin_label: from.trim(),
+          // Not saved by the backend yet; ignored until CreateRideBody has them (see README TODO):
+          origin_label: place.label,
           destination_label: DESTINATION,
         }),
       })
@@ -110,13 +107,18 @@ export default function PostRidePage() {
         ) : (
           <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
             <div className="space-y-4">
-              <TextField
+              <AddressInput
                 label="Leaving from"
-                name="from"
-                placeholder="Address, town or landmark"
+                placeholder="Start typing an address, town or landmark"
                 value={from}
-                onChange={(event) => {
-                  setFrom(event.target.value)
+                onChange={(text) => {
+                  setFrom(text)
+                  setPlace(null)
+                  clearError('from')
+                }}
+                onSelect={(picked) => {
+                  setFrom(picked.label)
+                  setPlace(picked)
                   clearError('from')
                 }}
                 error={errors.from}
