@@ -35,3 +35,19 @@ export async function readError(response: Response) {
   }
   return `Something went wrong (${response.status}). Please try again.`
 }
+
+// A failed request. Pages pick a friendly message from `status` instead of showing the server's text.
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+// Throws an ApiError unless the request succeeded.
+export async function throwIfNotOk(response: Response) {
+  if (!response.ok) throw new ApiError(response.status, await readError(response))
+}
