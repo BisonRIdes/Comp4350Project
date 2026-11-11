@@ -1,28 +1,6 @@
-// Rough rectangle around Manitoba as [west, north, east, south].
-const MANITOBA_BOX = '-102.05,60.0,-88.9,48.99'
-
-type Result = { lat: string; lon: string; address?: { state?: string } }
-
-// Turns typed text ("Brandon", "Steinbach", "123 Main St Winnipeg") into
-// GeoJSON [longitude, latitude], or null if nothing in Manitoba matched.
-export async function geocode(query: string): Promise<[number, number] | null> {
-  const params = new URLSearchParams({
-    q: query,
-    format: 'json',
-    limit: '5',
-    countrycodes: 'ca',
-    viewbox: MANITOBA_BOX,
-    bounded: '1',
-    addressdetails: '1',
-  })
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
-  if (!response.ok) {
-    return null
-  }
-  const results: Result[] = await response.json()
-  const match = results.find((result) => result.address?.state === 'Manitoba')
-  return match ? [Number(match.lon), Number(match.lat)] : null
-}
+// Coordinates → place name, for rides posted before the backend saved origin_label.
+// Typed addresses → coordinates now come from the Photon suggestions in places.ts.
+// TODO: delete this file once the backend saves origin_label (see README).
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

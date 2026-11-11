@@ -1,22 +1,37 @@
 import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { RideCard, type Ride } from '../components/RideCard'
+import { RideDetailsModal } from '../components/RideDetailsModal'
+import { LazyRideMap } from '../components/LazyRideMap'
 import { YourSeats } from '../components/YourSeats'
 import { headingClass } from '../styles'
+import { useOpenRide } from '../hooks/useOpenRide'
 import { useRides } from '../hooks/useRides'
-import { useNavigate } from 'react-router'
-import { getUser } from '../lib/auth'
+import { distanceKm, type Place } from '../lib/places'
 
-type Search = { from: string; to: string; departure: string }
-const emptySearch: Search = { from: '', to: '', departure: '' }
+// fromPlace / toPlace are set when that field was picked from the suggestions; then rides are
+// matched by distance instead of by name.
+type Search = { from: string; to: string; departure: string; fromPlace: Place | null; toPlace: Place | null }
+const emptySearch: Search = { from: '', to: '', departure: '', fromPlace: null, toPlace: null }
+
+// How far from a picked address a ride can start (or end) and still show up.
+const NEARBY_KM = 5
 
 function matchesSearch(ride: Ride, search: Search) {
   const contains = (value: string | undefined, query: string) =>
     (value ?? '').toLowerCase().includes(query.trim().toLowerCase())
-  if (search.from && !contains(ride.from, search.from)) return false
-  if (search.to && !contains(ride.to, search.to)) return false
+  const near = (point: readonly number[] | undefined, place: Place) =>
+    point !== undefined && distanceKm(point, place.coordinates) <= NEARBY_KM
+
+  if (search.fromPlace) {
+    if (!near(ride.origin, search.fromPlace)) return false
+  } else if (search.from && !contains(ride.from, search.from)) return false
+  if (search.toPlace) {
+    if (!near(ride.destination, search.toPlace)) return false
+  } else if (search.to && !contains(ride.to, search.to)) return false
   if (search.departure) {
     const wanted = new Date(search.departure)
     const leaves = new Date(ride.departure)
@@ -25,8 +40,18 @@ function matchesSearch(ride: Ride, search: Search) {
   return true
 }
 
+// Matching rides; nearest first when searching from a picked address.
+function findRides(rides: Ride[], search: Search) {
+  const found = rides.filter((ride) => matchesSearch(ride, search))
+  const place = search.fromPlace
+  if (!place) return found
+  return found.sort((a, b) => distanceKm(a.origin!, place.coordinates) - distanceKm(b.origin!, place.coordinates))
+}
+
 function describeSearch(search: Search) {
-  const route = [search.from || 'Anywhere', search.to || 'Anywhere'].join(' → ')
+  const from = search.fromPlace ? `Near ${search.fromPlace.name}` : search.from
+  const to = search.toPlace ? `near ${search.toPlace.name}` : search.to
+  const route = [from || 'Anywhere', to || 'Anywhere'].join(' → ')
   if (!search.departure) return route
   const time = new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   return `${route} · ${time.format(new Date(search.departure))}`
@@ -47,12 +72,11 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 
 export default function DashboardPage() {
   const { rides: allRides, loading, error: loadError } = useRides()
-  const navigate = useNavigate()
-  const user = getUser()
+  const { selectedRide, openRide, closeRide, isOwn } = useOpenRide()
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
 
-  const rides = activeSearch ? allRides.filter((ride) => matchesSearch(ride, activeSearch)) : allRides
+  const rides = activeSearch ? findRides(allRides, activeSearch) : allRides
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -77,20 +101,26 @@ export default function DashboardPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="mt-8 grid overflow-hidden rounded-3xl bg-white ring-1 ring-black/10 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.25)] md:grid-cols-[1fr_1fr_1fr_auto] md:items-center md:rounded-full md:p-1.5"
+          // No overflow-hidden: the address suggestions drop down past the bar.
+          className="relative z-10 mt-8 grid rounded-3xl bg-white ring-1 ring-black/10 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.25)] md:grid-cols-[1fr_1fr_1fr_auto] md:items-center md:rounded-full md:p-1.5"
         >
-          <SearchField
+          <AddressInput
+            variant="search"
             label="From"
             placeholder="Starting point"
             value={form.from}
-            onChange={(event) => setForm({ ...form, from: event.target.value })}
+            // Typing after picking means it's plain text again (matched by name).
+            onChange={(text) => setForm({ ...form, from: text, fromPlace: null })}
+            onSelect={(place) => setForm({ ...form, from: place.label, fromPlace: place })}
           />
           <div className="border-t border-black/10 md:border-l md:border-t-0">
-            <SearchField
+            <AddressInput
+              variant="search"
               label="To"
               placeholder="Destination"
               value={form.to}
-              onChange={(event) => setForm({ ...form, to: event.target.value })}
+              onChange={(text) => setForm({ ...form, to: text, toPlace: null })}
+              onSelect={(place) => setForm({ ...form, to: place.label, toPlace: place })}
             />
           </div>
           <div className="border-t border-black/10 md:border-l md:border-t-0">
@@ -111,6 +141,18 @@ export default function DashboardPage() {
             </button>
           </div>
         </form>
+
+        {/* After a search, show where the matching rides start. Clicking a dot opens that ride. */}
+        {activeSearch && !loading && !loadError && rides.length > 0 && (
+          <div className="mt-8 h-72 overflow-hidden rounded-3xl bg-mist ring-1 ring-black/10 sm:h-96">
+            <LazyRideMap
+              rides={rides}
+              onSelect={openRide}
+              searchPlaces={[activeSearch.fromPlace, activeSearch.toPlace].filter((place) => place !== null)}
+              searchRadiusKm={NEARBY_KM}
+            />
+          </div>
+        )}
 
         <YourSeats rides={allRides} />
 
@@ -146,13 +188,8 @@ export default function DashboardPage() {
             <ul className="mt-6 space-y-3">
               {rides.map((ride) => (
                 <li key={ride.id}>
-                  <RideCard
-                    ride={ride}
-                    isOwn={ride.driverId === user?.id}
-                    // Drivers go to the edit page when they click their own ride.
-                    onClick={ride.driverId === user?.id ? () => navigate(`/rides/${ride.id}/edit`) : undefined}
-                  />
-                  </li>
+                  <RideCard ride={ride} isOwn={isOwn(ride)} onClick={() => openRide(ride)} />
+                </li>
               ))}
             </ul>
           ) : (
@@ -174,6 +211,8 @@ export default function DashboardPage() {
           )}
         </section>
       </main>
+
+      {selectedRide && <RideDetailsModal ride={selectedRide} onClose={closeRide} />}
     </div>
   )
 }
