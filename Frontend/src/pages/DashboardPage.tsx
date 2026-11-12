@@ -149,8 +149,8 @@ export default function DashboardPage() {
                   <RideCard
                     ride={ride}
                     isOwn={ride.driverId === user?.id}
-                    // Drivers go to the edit page when they click their own ride.
-                    onClick={ride.driverId === user?.id ? () => navigate(`/rides/${ride.id}/edit`) : undefined}
+                    // Drivers edit their own rides; everyone else opens the ride to request a seat.
+                    onClick={() => navigate(ride.driverId === user?.id ? `/rides/${ride.id}/edit` : `/rides/${ride.id}`)}
                   />
                   </li>
               ))}

@@ -29,7 +29,6 @@ export function RideCard({ ride, isOwn = false, onClick }: { ride: Ride; isOwn?:
     <button
       type="button"
       onClick={onClick}
-      // TODO: open the ride details page for other drivers' rides once it exists.
       className="group grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl bg-white p-4 text-left ring-1 ring-black/10 transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5"
     >
       <div className="flex flex-col items-center text-center">
