@@ -47,7 +47,7 @@ export function RideCard({
       >
         <div className="flex flex-col items-center text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink">
-            {driver.charAt(0)}
+            {driver.charAt(0).toUpperCase()}
           </span>
           <span className="mt-1.5 text-sm font-medium">{driver}</span>
           {ride.rating !== undefined && (

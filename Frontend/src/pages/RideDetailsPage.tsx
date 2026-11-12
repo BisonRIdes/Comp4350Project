@@ -24,6 +24,7 @@ function RideSummary({ ride }: { ride: Ride }) {
     <div className="mt-10 rounded-3xl bg-mist p-6">
       <p className="text-[17px] font-semibold tracking-tight">{routeLabel(ride)}</p>
       <p className="mt-0.5 text-sm text-subtle">{formatDeparture(ride.departure)}</p>
+      {ride.driver && <p className="mt-0.5 text-sm text-subtle">Driven by {ride.driver}</p>}
       <p className="mt-5 border-t border-black/10 pt-5 text-sm text-subtle">
         {ride.seatsLeft === 0 ? 'Full' : `${ride.seatsLeft} ${ride.seatsLeft === 1 ? 'seat' : 'seats'} left`}
         {ride.price !== undefined && ` · $${ride.price.toFixed(2)} per seat`}
