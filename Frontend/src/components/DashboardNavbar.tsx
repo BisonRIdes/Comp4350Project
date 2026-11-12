@@ -107,6 +107,14 @@ export function DashboardNavbar() {
                 >
                   Profile
                 </Link>
+                <Link
+                  to="/history"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-xl px-3 py-2 text-ink transition-colors duration-300 hover:bg-mist"
+                >
+                  Request history
+                </Link>
                 <button
                   type="button"
                   role="menuitem"

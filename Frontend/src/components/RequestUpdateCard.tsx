@@ -7,7 +7,8 @@ import { RequestStatusBadge } from './RequestStatusBadge'
 
 // What the driver did, from the rider's side.
 const outcomes: Record<RequestStatus, string> = {
-  [RequestStatus.Pending]: 'has your request',
+  // Only in Request history: still waiting, or the ride left before the driver answered.
+  [RequestStatus.Pending]: "hasn't answered your request",
   [RequestStatus.Accepted]: 'accepted your request',
   [RequestStatus.Declined]: 'declined your request',
 }

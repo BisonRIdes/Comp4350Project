@@ -25,8 +25,16 @@ function Section({ title, empty, children }: { title: string; empty: string; chi
 // /notifications: requests waiting on the driver's rides, and answers to the rider's own requests.
 // Both lists stay live through UpdatesProvider, so nothing here polls on its own.
 export default function NotificationsPage() {
-  const { pendingRequests, requestUpdates, unreadDecisions, newDecisionIds, loading, error, markDecisionsSeen } =
-    useUpdates()
+  const {
+    pendingRequests,
+    requestUpdates,
+    unreadDecisions,
+    newDecisionIds,
+    loading,
+    error,
+    markDecisionsSeen,
+    clearNewDecisions,
+  } = useUpdates()
   const isDriver = getUser()?.is_driver ?? false
 
   // New answers first, latest arrival on top, then the rest in ride order. Requests have no timestamps,
@@ -39,6 +47,9 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (unreadCount > 0) markDecisionsSeen()
   }, [unreadCount, markDecisionsSeen])
+
+  // "New" only means new on this visit, so the labels go when the user leaves the page.
+  useEffect(() => clearNewDecisions, [clearNewDecisions])
 
   return (
     <div className="min-h-svh bg-white text-ink">

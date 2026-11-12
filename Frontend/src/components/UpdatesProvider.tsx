@@ -70,7 +70,11 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
   const seenIds = seen && seen.userId === userId ? seen.ids : []
   const unreadDecisions = requestUpdates.filter((request) => !seenIds.includes(request.id))
 
-  // Opening notifications reads every answer there. The ones that were unread stay labelled "new" until a reload.
+  // Leaving notifications takes the "new" labels away. Stable, so the page can run it only when it closes.
+  const clearNewDecisions = useCallback(() => setJustSeen(null), [])
+
+  // Opening notifications reads every answer there. The ones that were unread stay labelled "new" until
+  // the user leaves the page.
   function markDecisionsSeen() {
     if (!userId || unreadDecisions.length === 0) return
     const answered = requestUpdates.map((request) => request.id)
@@ -92,6 +96,7 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
     error: current?.error ?? '',
     refresh,
     markDecisionsSeen,
+    clearNewDecisions,
   }
   return <UpdatesContext value={value}>{children}</UpdatesContext>
 }

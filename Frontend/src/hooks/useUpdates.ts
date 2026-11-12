@@ -8,7 +8,7 @@ export type UpdatesState = {
   requestUpdates: RideRequestDetails[]
   // Answers in requestUpdates the user hasn't seen yet. Counted on the Notifications badge.
   unreadDecisions: RideRequestDetails[]
-  // Request ids that were unread when the user last opened notifications, to label them "new".
+  // Request ids that were unread when the user opened notifications, labelled "new" until they leave.
   newDecisionIds: string[]
   loading: boolean
   error: string
@@ -16,6 +16,8 @@ export type UpdatesState = {
   refresh: () => Promise<void>
   // The user has looked at their notifications, so every answer there counts as read.
   markDecisionsSeen: () => void
+  // The user left their notifications, so nothing there is labelled "new" any more.
+  clearNewDecisions: () => void
 }
 
 export const UpdatesContext = createContext<UpdatesState | null>(null)

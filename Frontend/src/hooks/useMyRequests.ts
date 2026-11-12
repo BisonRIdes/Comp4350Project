@@ -12,7 +12,7 @@ const cancelErrors: Record<number, string> = {
 // Also covers a refund Stripe couldn't make yet; the backend keeps the seat, so trying again is safe.
 const fallbackCancelError = "Couldn't cancel right now. Try again."
 
-// Every request the rider made, split into ones still in play and ones that are done, with a way to cancel.
+// Every request the rider made, the ones still in play, and a way to cancel.
 export function useMyRequests() {
   const { requestUpdates, refresh } = useUpdates()
   // The time is taken when the list arrives, not while rendering, so every render splits it the same way.
@@ -58,8 +58,8 @@ export function useMyRequests() {
   return {
     // Upcoming rides the rider is waiting on or has a seat in, soonest first.
     active: all.filter((request) => !isDone(request)),
-    // Rides that already left, and declined requests: nothing more can happen with these. Latest first.
-    history: all.filter(isDone).reverse(),
+    // Every request in any status, for the request history. Latest ride first.
+    history: [...all].reverse(),
     loading: loaded === null && !error,
     error,
     cancel,
