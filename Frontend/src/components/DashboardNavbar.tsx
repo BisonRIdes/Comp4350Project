@@ -3,10 +3,12 @@ import { Link, NavLink, useNavigate } from 'react-router'
 import { Icon } from './Icon'
 import { icons } from './icons'
 import { getUser, logout } from '../lib/auth'
+import { useUpdates } from '../hooks/useUpdates'
 
 const appLinks = [
   { to: '/post-ride', label: 'Post Ride' },
   { to: '/dashboard', label: 'Find Ride' },
+  { to: '/notifications', label: 'Notifications' },
   { to: '/map', label: 'Map' },
 ]
 
@@ -16,6 +18,8 @@ export function DashboardNavbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const user = getUser()
+  // Shown on the Notifications link so drivers notice new requests from any page.
+  const requestCount = useUpdates().pendingRequests.length
 
   // Close the profile menu on an outside click or Escape.
   useEffect(() => {
@@ -60,6 +64,12 @@ export function DashboardNavbar() {
                 }
               >
                 {link.label}
+                {link.to === '/notifications' && requestCount > 0 && (
+                  <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
+                    {requestCount}
+                    <span className="sr-only"> waiting</span>
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>

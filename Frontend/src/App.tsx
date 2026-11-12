@@ -11,6 +11,7 @@ import VerifyPage from './pages/VerifyPage'
 import PaymentPage from './pages/PaymentPage'
 import EditRidePage from './pages/EditRidePage'
 import RideDetailsPage from './pages/RideDetailsPage'
+import NotificationsPage from './pages/NotificationsPage'
 import { GuestOnly, RequireAuth } from './components/RouteGuards'
 import { UpdatesProvider } from './components/UpdatesProvider'
 
@@ -39,6 +40,7 @@ function App() {
           <Route path="/post-ride" element={<RequireAuth><PostRidePage /></RequireAuth>} />
           <Route path="/rides/:rideId" element={<RequireAuth><RideDetailsPage /></RequireAuth>} />
           <Route path="/rides/:rideId/edit" element={<RequireAuth><EditRidePage /></RequireAuth>} />
+          <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
           <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/requests/:requestId/pay" element={<RequireAuth><PaymentPage /></RequireAuth>} />
