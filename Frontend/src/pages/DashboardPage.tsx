@@ -65,7 +65,7 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 }
 
 export default function DashboardPage() {
-  const { rides: allRides, loading: ridesLoading, error: ridesError } = useRides()
+  const { rides: allRides, loading: ridesLoading, error: ridesError, reload: reloadRides } = useRides()
   const navigate = useNavigate()
   const user = getUser()
   const [form, setForm] = useState<Search>(emptySearch)
@@ -89,6 +89,13 @@ export default function DashboardPage() {
   const loading = ridesLoading || (view === 'seats' && seatsLoading)
   const loadError = ridesError || (view === 'seats' ? seatsError : '')
   const unpaid = payments.filter((payment) => payment.status !== 'paid' && payment.amount_cents !== null).length
+
+  // A seat just came free, so show the new seats left now instead of after the next reload.
+  async function cancelSeat(requestId: string) {
+    const message = await cancel(requestId)
+    reloadRides()
+    return message
+  }
 
   function changeView(next: View) {
     setParams(next === 'all' ? {} : { view: next })
@@ -234,7 +241,7 @@ export default function DashboardPage() {
                           <SeatActions
                             status={seat.status}
                             payment={payments.find((payment) => payment.request_id === seat.id)}
-                            onCancel={() => cancel(seat.id)}
+                            onCancel={() => cancelSeat(seat.id)}
                           />
                         )
                       }
