@@ -13,7 +13,8 @@ const outcomes: Record<RequestStatus, string> = {
 }
 
 // A driver's answer to one of the rider's requests, and which ride it was for.
-export function RequestUpdateCard({ request }: { request: RideRequestDetails }) {
+// isNew marks an answer that was unread when the rider opened notifications.
+export function RequestUpdateCard({ request, isNew = false }: { request: RideRequestDetails; isNew?: boolean }) {
   const from = usePlaceName(request.origin_point.coordinates)
   const route = from ? `${from} → ${DESTINATION}` : DESTINATION
 
@@ -31,7 +32,14 @@ export function RequestUpdateCard({ request }: { request: RideRequestDetails }) 
           </Link>
         </p>
       </div>
-      <RequestStatusBadge status={request.status} />
+      <div className="flex items-center gap-2">
+        {isNew && (
+          <span className="rounded-full bg-danger px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">
+            New
+          </span>
+        )}
+        <RequestStatusBadge status={request.status} />
+      </div>
     </article>
   )
 }

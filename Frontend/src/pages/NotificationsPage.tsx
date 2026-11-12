@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { IncomingRequestCard } from '../components/IncomingRequestCard'
 import { RequestUpdateCard } from '../components/RequestUpdateCard'
@@ -25,8 +25,20 @@ function Section({ title, empty, children }: { title: string; empty: string; chi
 // /notifications: requests waiting on the driver's rides, and answers to the rider's own requests.
 // Both lists stay live through UpdatesProvider, so nothing here polls on its own.
 export default function NotificationsPage() {
-  const { pendingRequests, requestUpdates, loading, error } = useUpdates()
+  const { pendingRequests, requestUpdates, unreadDecisions, newDecisionIds, loading, error, markDecisionsSeen } =
+    useUpdates()
   const isDriver = getUser()?.is_driver ?? false
+
+  // New answers first, latest arrival on top, then the rest in ride order. Requests have no timestamps,
+  // so arrival order is only known for answers that came in while this browser was open.
+  const newRank = (id: string) => newDecisionIds.indexOf(id)
+  const newestFirst = [...requestUpdates].sort((a, b) => newRank(b.id) - newRank(a.id))
+
+  // Being on this page counts as reading the answers, including ones that arrive while it's open.
+  const unreadCount = unreadDecisions.length
+  useEffect(() => {
+    if (unreadCount > 0) markDecisionsSeen()
+  }, [unreadCount, markDecisionsSeen])
 
   return (
     <div className="min-h-svh bg-white text-ink">
@@ -64,9 +76,9 @@ export default function NotificationsPage() {
               title="Updates on your requests"
               empty="No answers yet. When a driver accepts or declines your request, it shows up here."
             >
-              {requestUpdates.map((request) => (
+              {newestFirst.map((request) => (
                 <li key={request.id}>
-                  <RequestUpdateCard request={request} />
+                  <RequestUpdateCard request={request} isNew={newDecisionIds.includes(request.id)} />
                 </li>
               ))}
             </Section>

@@ -6,10 +6,16 @@ export type UpdatesState = {
   pendingRequests: RideRequestDetails[]
   // The user's own requests that were accepted or declined (rider view).
   requestUpdates: RideRequestDetails[]
+  // Answers in requestUpdates the user hasn't seen yet. Counted on the Notifications badge.
+  unreadDecisions: RideRequestDetails[]
+  // Request ids that were unread when the user last opened notifications, to label them "new".
+  newDecisionIds: string[]
   loading: boolean
   error: string
   // Check now instead of waiting for the next poll, e.g. right after accepting a request.
   refresh: () => Promise<void>
+  // The user has looked at their notifications, so every answer there counts as read.
+  markDecisionsSeen: () => void
 }
 
 export const UpdatesContext = createContext<UpdatesState | null>(null)

@@ -18,8 +18,10 @@ export function DashboardNavbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const user = getUser()
-  // Shown on the Notifications link so drivers notice new requests from any page.
-  const requestCount = useUpdates().pendingRequests.length
+  // Shown on the Notifications link from any page: requests waiting on the driver, plus answers
+  // the rider hasn't read.
+  const { pendingRequests, unreadDecisions } = useUpdates()
+  const notificationCount = pendingRequests.length + unreadDecisions.length
 
   // Close the profile menu on an outside click or Escape.
   useEffect(() => {
@@ -64,10 +66,10 @@ export function DashboardNavbar() {
                 }
               >
                 {link.label}
-                {link.to === '/notifications' && requestCount > 0 && (
+                {link.to === '/notifications' && notificationCount > 0 && (
                   <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
-                    {requestCount}
-                    <span className="sr-only"> waiting</span>
+                    {notificationCount}
+                    <span className="sr-only"> unread</span>
                   </span>
                 )}
               </NavLink>
