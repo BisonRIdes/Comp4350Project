@@ -4,6 +4,7 @@ import { icons } from './icons'
 // Optional fields aren't returned by GET /rides yet; the card hides them when missing.
 export type Ride = {
   id: string
+  driverId: string
   from?: string
   to?: string
   departure: string // ISO date string
@@ -18,7 +19,8 @@ const dateFormat = new Intl.DateTimeFormat('en-CA', { weekday: 'short', month: '
 const timeFormat = new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit' })
 
 // One row in "Available rides": driver | route + time | car | price + seats.
-export function RideCard({ ride }: { ride: Ride }) {
+// isOwn marks the signed-in driver's own ride. onClick runs when the card is clicked.
+export function RideCard({ ride, isOwn = false, onClick }: { ride: Ride; isOwn?: boolean; onClick?: () => void }) {
   const departure = new Date(ride.departure)
   const driver = ride.driver ?? 'Driver'
   const route = ride.from && ride.to ? `${ride.from} → ${ride.to}` : `Ride on ${dateFormat.format(departure)}`
@@ -26,7 +28,8 @@ export function RideCard({ ride }: { ride: Ride }) {
   return (
     <button
       type="button"
-      // TODO: open the ride details page once it exists.
+      onClick={onClick}
+      // TODO: open the ride details page for other drivers' rides once it exists.
       className="group grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl bg-white p-4 text-left ring-1 ring-black/10 transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5"
     >
       <div className="flex flex-col items-center text-center">
@@ -44,6 +47,7 @@ export function RideCard({ ride }: { ride: Ride }) {
 
       <div className="min-w-0">
         <p className="truncate text-[17px] font-semibold tracking-tight">{route}</p>
+        {isOwn && <span className="mt-1 inline-block rounded-full bg-mist px-2.5 py-0.5 text-xs font-medium text-ink">Your ride · tap to edit</span>}
         <p className="mt-0.5 text-sm text-subtle">
           {dateFormat.format(departure)} · {timeFormat.format(departure)}
         </p>

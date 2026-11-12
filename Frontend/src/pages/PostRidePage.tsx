@@ -8,52 +8,10 @@ import { errorNotice, headingClass, primaryButton } from '../styles'
 import { apiFetch, readError } from '../lib/api'
 import { getUser } from '../lib/auth'
 import { geocode } from '../lib/geocode'
-import { DESTINATION } from '../lib/rides'
-
-const minSeats = 1
-const maxSeats = 8 // big enough for a minivan; raise it if needed
+import { DESTINATION, toLocalInputValue } from '../lib/rides'
+import { SeatStepper } from '../components/SeatStepper'
 
 type Errors = { from?: string; departure?: string; price?: string }
-
-// <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm" in local time.
-function toLocalInputValue(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
-
-// − 3 + counter. The number can also be typed.
-function SeatStepper({ value, onChange }: { value: number; onChange: (seats: number) => void }) {
-  const clamp = (seats: number) => Math.min(maxSeats, Math.max(minSeats, seats))
-  const stepButton =
-    'flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl text-ink ring-1 ring-black/10 transition duration-300 ease-smooth hover:ring-black/30 active:scale-[0.95] disabled:opacity-40 disabled:hover:ring-black/10'
-
-  return (
-    <div className="flex items-center justify-between rounded-2xl bg-mist p-2">
-      <button type="button" onClick={() => onChange(clamp(value - 1))} disabled={value <= minSeats} aria-label="Remove a seat" className={stepButton}>
-        −
-      </button>
-      <div className="text-center">
-        <input
-          type="number"
-          inputMode="numeric"
-          min={minSeats}
-          max={maxSeats}
-          value={value}
-          onChange={(event) => {
-            const typed = parseInt(event.target.value, 10)
-            if (!Number.isNaN(typed)) onChange(clamp(typed))
-          }}
-          aria-label="Seats available"
-          className="w-16 bg-transparent text-center text-2xl font-semibold tabular-nums text-ink focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        />
-        <p className="text-xs text-subtle">{value === 1 ? 'seat' : 'seats'} for riders</p>
-      </div>
-      <button type="button" onClick={() => onChange(clamp(value + 1))} disabled={value >= maxSeats} aria-label="Add a seat" className={stepButton}>
-        +
-      </button>
-    </div>
-  )
-}
 
 export default function PostRidePage() {
   const navigate = useNavigate()
@@ -79,6 +37,8 @@ export default function PostRidePage() {
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     const priceValue = Number(price)
     if (!price || Number.isNaN(priceValue) || priceValue <= 0) nextErrors.price = 'Enter a price per seat.'
+    // Stripe's smallest card payment in Canadian dollars.
+    else if (priceValue < 0.5) nextErrors.price = 'Riders pay by card, so a seat has to cost at least $0.50.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -104,10 +64,10 @@ export default function PostRidePage() {
           origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
+          price_cents: Math.round(priceValue * 100),
           // Not saved by the backend yet; ignored until CreateRideBody has them:
           origin_label: from.trim(),
           destination_label: DESTINATION,
-          price_cents: Math.round(priceValue * 100),
         }),
       })
       if (response.status === 403) {
@@ -192,7 +152,7 @@ export default function PostRidePage() {
                 type="number"
                 name="price"
                 inputMode="decimal"
-                min="0.25"
+                min="0.50"
                 step="0.25"
                 placeholder="5.00"
                 value={price}

@@ -19,11 +19,29 @@ def check_owner(ride: Ride, user: User) -> None:
         raise HTTPException(status_code=403, detail="You can only change your own rides")
 
 
+# how many riders the driver has already accepted on this ride
+async def count_accepted(ride_id: str, db: AsyncSession) -> int:
+    return await db.scalar(
+        select(func.count())
+        .select_from(RideRegistration)
+        .where(RideRegistration.ride_id == ride_id)
+    )
+
+
 # return a list of all rides for populating the frontend
 @router.get("", response_model=list[RideOut])
 async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[Ride]:
     result = await db.execute(select(Ride).order_by(Ride.departure_time))
     return result.scalars().all()
+
+
+# get one ride, e.g. for the ride details page
+@router.get("/{ride_id}", response_model=RideOut)
+async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    return ride
 
 
 # driver can post a ride
@@ -39,6 +57,7 @@ async def create_ride(
         origin_point=body.origin_point.model_dump(),
         departure_time=body.departure_time,
         seats=body.seats,
+        price_cents=body.price_cents,
     )
     db.add(ride)
     await db.commit()
@@ -64,6 +83,10 @@ async def edit_ride(
     if not changes:
         raise HTTPException(status_code=422, detail="No fields to update")
 
+    # can't drop below the riders already accepted, or someone would lose their seat
+    if "seats" in changes and changes["seats"] < await count_accepted(ride_id, db):
+        raise HTTPException(status_code=409, detail="Seats can't be fewer than accepted riders")
+
     for field, value in changes.items():
         setattr(ride, field, value)
 
@@ -82,12 +105,7 @@ async def delete_ride(
         raise HTTPException(status_code=404, detail="Ride not found")
     check_owner(ride, user)
 
-    accepted = await db.scalar(
-        select(func.count())
-        .select_from(RideRegistration)
-        .where(RideRegistration.ride_id == ride_id)
-    )
-    if accepted:
+    if await count_accepted(ride_id, db):
         raise HTTPException(status_code=409, detail="Ride has accepted riders")
 
     await db.execute(delete(RideRequest).where(RideRequest.ride_id == ride_id))
