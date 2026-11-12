@@ -3,14 +3,33 @@ import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { RideCard, type Ride } from '../components/RideCard'
-import { YourSeats } from '../components/YourSeats'
+import { SeatActions } from '../components/SeatActions'
+import { RequestStatus } from '../constants'
 import { headingClass } from '../styles'
+import { useMyRequests } from '../hooks/useMyRequests'
 import { useRides } from '../hooks/useRides'
-import { useNavigate } from 'react-router'
+import { useSeatPayments } from '../hooks/useSeatPayments'
+import { useNavigate, useSearchParams } from 'react-router'
 import { getUser } from '../lib/auth'
 
 type Search = { from: string; to: string; departure: string }
 const emptySearch: Search = { from: '', to: '', departure: '' }
+
+// What "Filter by" shows. Kept in the URL (?view=seats) so a refresh or a link opens the same list.
+type View = 'all' | 'seats' | 'rides'
+const viewTitles: Record<View, string> = { all: 'Available rides', seats: 'My seats', rides: 'My rides' }
+const emptyMessages: Record<View, string> = {
+  all: 'Sorry, there are no rides available.',
+  seats: "You don't have any upcoming seats.",
+  rides: "You haven't posted any upcoming rides.",
+}
+
+// Only drivers have rides of their own, so anything unknown falls back to every ride.
+function toView(requested: string | null, isDriver: boolean): View {
+  if (requested === 'seats') return 'seats'
+  if (requested === 'rides' && isDriver) return 'rides'
+  return 'all'
+}
 
 function matchesSearch(ride: Ride, search: Search) {
   const contains = (value: string | undefined, query: string) =>
@@ -46,13 +65,34 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 }
 
 export default function DashboardPage() {
-  const { rides: allRides, loading, error: loadError } = useRides()
+  const { rides: allRides, loading: ridesLoading, error: ridesError } = useRides()
   const navigate = useNavigate()
   const user = getUser()
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
+  const [params, setParams] = useSearchParams()
+  const { active: seats, loading: seatsLoading, error: seatsError, cancel } = useMyRequests()
+  const payments = useSeatPayments(
+    seats.filter((seat) => seat.status === RequestStatus.Accepted).map((seat) => seat.id),
+  )
 
-  const rides = activeSearch ? allRides.filter((ride) => matchesSearch(ride, activeSearch)) : allRides
+  // Every view is the same list of rides, so search and the cards work the same way in all three.
+  const view = toView(params.get('view'), user?.is_driver ?? false)
+  const seatOnRide = new Map(seats.map((seat) => [seat.ride_id, seat]))
+  const listed =
+    view === 'seats'
+      ? allRides.filter((ride) => seatOnRide.has(ride.id))
+      : view === 'rides'
+        ? allRides.filter((ride) => ride.driverId === user?.id)
+        : allRides
+  const rides = activeSearch ? listed.filter((ride) => matchesSearch(ride, activeSearch)) : listed
+  const loading = ridesLoading || (view === 'seats' && seatsLoading)
+  const loadError = ridesError || (view === 'seats' ? seatsError : '')
+  const unpaid = payments.filter((payment) => payment.status !== 'paid' && payment.amount_cents !== null).length
+
+  function changeView(next: View) {
+    setParams(next === 'all' ? {} : { view: next })
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -95,7 +135,7 @@ export default function DashboardPage() {
           </div>
           <div className="border-t border-black/10 md:border-l md:border-t-0">
             <SearchField
-              label="Departure (optional)"
+              label="Departure"
               type="datetime-local"
               value={form.departure}
               onChange={(event) => setForm({ ...form, departure: event.target.value })}
@@ -112,25 +152,61 @@ export default function DashboardPage() {
           </div>
         </form>
 
-        <YourSeats rides={allRides} />
-
         <section className="mt-14">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight">Available rides</h2>
-            {activeSearch && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-mist py-1 pl-4 pr-1 text-sm text-ink">
-                {describeSearch(activeSearch)}
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  aria-label="Clear search"
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-subtle transition-colors duration-300 hover:bg-white hover:text-ink"
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-2xl font-semibold tracking-tight">{viewTitles[view]}</h2>
+              {activeSearch && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-mist py-1 pl-4 pr-1 text-sm text-ink">
+                  {describeSearch(activeSearch)}
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-subtle transition-colors duration-300 hover:bg-white hover:text-ink"
+                  >
+                    <Icon className="h-4 w-4">{icons.close}</Icon>
+                  </button>
+                </span>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-sm text-subtle">
+              Filter by:
+              {/* The browser's own arrow sits right on the edge, so it's hidden and our chevron is drawn instead. */}
+              <span className="relative">
+                <select
+                  value={view}
+                  onChange={(event) => changeView(event.target.value as View)}
+                  className="appearance-none rounded-full bg-mist py-2 pl-4 pr-10 text-sm font-medium text-ink ring-1 ring-transparent transition duration-300 hover:ring-black/10 focus:outline-none focus:ring-2 focus:ring-ink"
                 >
-                  <Icon className="h-4 w-4">{icons.close}</Icon>
-                </button>
+                  <option value="all">All available rides</option>
+                  <option value="seats">My seats</option>
+                  {user?.is_driver && <option value="rides">My rides</option>}
+                </select>
+                <Icon className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-subtle">
+                  {icons.chevron}
+                </Icon>
               </span>
-            )}
+            </label>
           </div>
+
+          {/* Riders with a seat see it straight away, without the list changing under them. */}
+          {view === 'all' && seats.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-mist px-5 py-4 text-sm">
+              <p className="text-ink">
+                You have {seats.length} upcoming {seats.length === 1 ? 'seat' : 'seats'}
+                {unpaid > 0 && <span className="text-subtle"> · {unpaid} waiting for payment</span>}
+              </p>
+              <button
+                type="button"
+                onClick={() => changeView('seats')}
+                className="inline-flex items-center gap-1 font-medium text-ink underline-offset-4 hover:underline"
+              >
+                View my seats
+                <Icon className="h-4 w-4">{icons.arrow}</Icon>
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <ul className="mt-6 space-y-3" aria-label="Loading rides">
@@ -144,20 +220,32 @@ export default function DashboardPage() {
             </p>
           ) : rides.length > 0 ? (
             <ul className="mt-6 space-y-3">
-              {rides.map((ride) => (
-                <li key={ride.id}>
-                  <RideCard
-                    ride={ride}
-                    isOwn={ride.driverId === user?.id}
-                    // Drivers edit their own rides; everyone else opens the ride to request a seat.
-                    onClick={() => navigate(ride.driverId === user?.id ? `/rides/${ride.id}/edit` : `/rides/${ride.id}`)}
-                  />
+              {rides.map((ride) => {
+                const seat = view === 'seats' ? seatOnRide.get(ride.id) : undefined
+                return (
+                  <li key={ride.id}>
+                    <RideCard
+                      ride={ride}
+                      isOwn={ride.driverId === user?.id}
+                      // Drivers edit their own rides; everyone else opens the ride to request a seat.
+                      onClick={() => navigate(ride.driverId === user?.id ? `/rides/${ride.id}/edit` : `/rides/${ride.id}`)}
+                      footer={
+                        seat && (
+                          <SeatActions
+                            status={seat.status}
+                            payment={payments.find((payment) => payment.request_id === seat.id)}
+                            onCancel={() => cancel(seat.id)}
+                          />
+                        )
+                      }
+                    />
                   </li>
-              ))}
+                )
+              })}
             </ul>
           ) : (
             <div role="status" className="mt-6 rounded-3xl bg-mist px-6 py-16 text-center">
-              <p className="text-lg font-medium">Sorry, there are no rides available.</p>
+              <p className="text-lg font-medium">{emptyMessages[view]}</p>
               {activeSearch && (
                 <>
                   <p className="mt-2 text-subtle">Try a different route or time, or clear your search to see every ride.</p>

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { icons } from './icons'
 
@@ -20,59 +21,75 @@ const timeFormat = new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '
 
 // One row in "Available rides": driver | route + time | car | price + seats.
 // isOwn marks the signed-in driver's own ride. onClick runs when the card is clicked.
-export function RideCard({ ride, isOwn = false, onClick }: { ride: Ride; isOwn?: boolean; onClick?: () => void }) {
+// footer goes inside the card under the ride, e.g. the rider's seat and its buttons. The ride part
+// is its own button because a button can't hold other buttons.
+export function RideCard({
+  ride,
+  isOwn = false,
+  onClick,
+  footer,
+}: {
+  ride: Ride
+  isOwn?: boolean
+  onClick?: () => void
+  footer?: ReactNode
+}) {
   const departure = new Date(ride.departure)
   const driver = ride.driver ?? 'Driver'
   const route = ride.from && ride.to ? `${ride.from} → ${ride.to}` : `Ride on ${dateFormat.format(departure)}`
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl bg-white p-4 text-left ring-1 ring-black/10 transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5"
-    >
-      <div className="flex flex-col items-center text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink">
-          {driver.charAt(0)}
-        </span>
-        <span className="mt-1.5 text-sm font-medium">{driver}</span>
-        {ride.rating !== undefined && (
-          <span className="flex items-center gap-1 text-xs text-subtle">
-            <Icon className="h-3 w-3">{icons.star}</Icon>
-            {ride.rating.toFixed(1)}
+    <div className="group rounded-3xl bg-white ring-1 ring-black/10 transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)]">
+      <button
+        type="button"
+        onClick={onClick}
+        className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5"
+      >
+        <div className="flex flex-col items-center text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink">
+            {driver.charAt(0)}
           </span>
-        )}
-      </div>
-
-      <div className="min-w-0">
-        <p className="truncate text-[17px] font-semibold tracking-tight">{route}</p>
-        {isOwn && <span className="mt-1 inline-block rounded-full bg-mist px-2.5 py-0.5 text-xs font-medium text-ink">Your ride · tap to edit</span>}
-        <p className="mt-0.5 text-sm text-subtle">
-          {dateFormat.format(departure)} · {timeFormat.format(departure)}
-        </p>
-        {ride.car && <p className="mt-0.5 text-sm text-subtle sm:hidden">{ride.car}</p>}
-      </div>
-
-      <div className="hidden items-center gap-2 text-sm text-subtle sm:flex">
-        {ride.car && (
-          <>
-            <Icon className="h-4 w-4 shrink-0">{icons.car}</Icon>
-            {ride.car}
-          </>
-        )}
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          {ride.price !== undefined && <p className="text-lg font-semibold tabular-nums">${ride.price.toFixed(2)}</p>}
-          <p className="text-xs text-subtle">
-            {ride.seatsLeft} {ride.seatsLeft === 1 ? 'seat' : 'seats'} left
-          </p>
+          <span className="mt-1.5 text-sm font-medium">{driver}</span>
+          {ride.rating !== undefined && (
+            <span className="flex items-center gap-1 text-xs text-subtle">
+              <Icon className="h-3 w-3">{icons.star}</Icon>
+              {ride.rating.toFixed(1)}
+            </span>
+          )}
         </div>
-        <Icon className="hidden h-5 w-5 text-neutral-300 transition-[color,transform] duration-300 group-hover:translate-x-0.5 group-hover:text-ink sm:block">
-          {icons.chevron}
-        </Icon>
-      </div>
-    </button>
+
+        <div className="min-w-0">
+          <p className="truncate text-[17px] font-semibold tracking-tight">{route}</p>
+          {isOwn && <span className="mt-1 inline-block rounded-full bg-mist px-2.5 py-0.5 text-xs font-medium text-ink">Your ride · tap to edit</span>}
+          <p className="mt-0.5 text-sm text-subtle">
+            {dateFormat.format(departure)} · {timeFormat.format(departure)}
+          </p>
+          {ride.car && <p className="mt-0.5 text-sm text-subtle sm:hidden">{ride.car}</p>}
+        </div>
+
+        <div className="hidden items-center gap-2 text-sm text-subtle sm:flex">
+          {ride.car && (
+            <>
+              <Icon className="h-4 w-4 shrink-0">{icons.car}</Icon>
+              {ride.car}
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            {ride.price !== undefined && <p className="text-lg font-semibold tabular-nums">${ride.price.toFixed(2)}</p>}
+            <p className="text-xs text-subtle">
+              {ride.seatsLeft} {ride.seatsLeft === 1 ? 'seat' : 'seats'} left
+            </p>
+          </div>
+          <Icon className="hidden h-5 w-5 text-neutral-300 transition-[color,transform] duration-300 group-hover:translate-x-0.5 group-hover:text-ink sm:block">
+            {icons.chevron}
+          </Icon>
+        </div>
+      </button>
+
+      {footer && <div className="border-t border-black/5 px-4 py-3 sm:px-5">{footer}</div>}
+    </div>
   )
 }
