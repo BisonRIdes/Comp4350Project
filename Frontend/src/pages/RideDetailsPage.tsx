@@ -25,7 +25,7 @@ function RideSummary({ ride }: { ride: Ride }) {
       <p className="text-[17px] font-semibold tracking-tight">{routeLabel(ride)}</p>
       <p className="mt-0.5 text-sm text-subtle">{formatDeparture(ride.departure)}</p>
       <p className="mt-5 border-t border-black/10 pt-5 text-sm text-subtle">
-        {ride.seatsLeft} {ride.seatsLeft === 1 ? 'seat' : 'seats'}
+        {ride.seatsLeft === 0 ? 'Full' : `${ride.seatsLeft} ${ride.seatsLeft === 1 ? 'seat' : 'seats'} left`}
         {ride.price !== undefined && ` · $${ride.price.toFixed(2)} per seat`}
       </p>
     </div>
@@ -45,8 +45,9 @@ function OwnRide({ rideId }: { rideId: string }) {
   )
 }
 
-// "Request seat", or where the request stands if the rider already asked.
-function RequestSeat({ rideId }: { rideId: string }) {
+// "Request seat", or where the request stands if the rider already asked. A full ride can't be
+// requested, but a rider who already asked still sees their request.
+function RequestSeat({ rideId, full }: { rideId: string; full: boolean }) {
   const { status, loading, sending, error, request } = useMyRequestForRide(rideId)
 
   if (loading) return <div aria-label="Checking your requests" className="mt-8 h-12 animate-pulse rounded-full bg-mist" />
@@ -55,6 +56,13 @@ function RequestSeat({ rideId }: { rideId: string }) {
       <p role="status" className="mt-8 flex flex-wrap items-center gap-3 text-[15px]">
         <RequestStatusBadge status={status} />
         {statusMessages[status]}
+      </p>
+    )
+  }
+  if (full) {
+    return (
+      <p role="status" className="mt-8 rounded-3xl bg-mist px-6 py-6 text-center text-[15px] font-medium">
+        This ride is full.
       </p>
     )
   }
@@ -110,7 +118,7 @@ export default function RideDetailsPage() {
         ) : (
           <>
             <RideSummary ride={{ ...ride, from: from ?? ride.from }} />
-            {isOwn ? <OwnRide rideId={ride.id} /> : <RequestSeat rideId={ride.id} />}
+            {isOwn ? <OwnRide rideId={ride.id} /> : <RequestSeat rideId={ride.id} full={ride.seatsLeft === 0} />}
           </>
         )}
       </main>

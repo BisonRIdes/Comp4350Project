@@ -80,7 +80,7 @@ export function RideCard({
           <div className="text-right">
             {ride.price !== undefined && <p className="text-lg font-semibold tabular-nums">${ride.price.toFixed(2)}</p>}
             <p className="text-xs text-subtle">
-              {ride.seatsLeft} {ride.seatsLeft === 1 ? 'seat' : 'seats'} left
+              {ride.seatsLeft === 0 ? 'Full' : `${ride.seatsLeft} ${ride.seatsLeft === 1 ? 'seat' : 'seats'} left`}
             </p>
           </div>
           <Icon className="hidden h-5 w-5 text-neutral-300 transition-[color,transform] duration-300 group-hover:translate-x-0.5 group-hover:text-ink sm:block">

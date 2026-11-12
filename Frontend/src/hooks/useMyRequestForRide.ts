@@ -5,6 +5,8 @@ import { fetchMyRequests, requestRide } from '../lib/rideRequests'
 
 // What to tell the rider when asking for a seat fails, by HTTP status.
 const requestErrors: Record<number, string> = {
+  // The last seat was taken while the page was open.
+  400: 'This ride is full.',
   403: "You can't request a seat on your own ride.",
   404: 'This ride no longer exists.',
   409: "You've already requested this ride.",

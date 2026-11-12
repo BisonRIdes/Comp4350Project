@@ -10,6 +10,7 @@ export type RideOut = {
   driver_id: string | number
   departure_time: string
   seats: number
+  seats_left: number // seats not yet taken by accepted riders
   origin_point?: { type: string; coordinates: [number, number] }
   origin_label?: string
   destination_label?: string
@@ -38,8 +39,7 @@ export function toRide(raw: RideOut): Ride {
     to: raw.destination_label ?? DESTINATION,
     departure: raw.departure_time,
     price: raw.price_cents == null ? undefined : raw.price_cents / 100,
-    // RideOut has no count of accepted riders yet, so this is the total seats offered.
-    seatsLeft: raw.seats,
+    seatsLeft: raw.seats_left,
   }
 }
 
