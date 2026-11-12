@@ -262,6 +262,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RideRequest" }
+        "400":
+          description: The ride is full (every seat is taken by an accepted rider)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
           description: The logged-in user is this ride's driver
@@ -628,16 +633,22 @@ components:
 
     Ride:
       type: object
-      required: [id, driver_id, origin_point, departure_time, seats, price_cents]
+      required:
+        [id, driver_id, driver_username, origin_point, departure_time, seats, price_cents, seats_left]
       properties:
         id: { type: string, format: uuid }
         driver_id: { type: string, format: uuid }
+        driver_username: { type: string, description: The student driving the ride }
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 0 }
         price_cents:
           type: [integer, "null"]
           description: What each rider pays for a seat, in cents (CAD). Null for rides posted before prices were saved.
+        seats_left:
+          type: integer
+          minimum: 0
+          description: Seats not yet taken by accepted riders, whether they've paid or not. 0 means the ride is full.
 
     CreateRideRequest:
       type: object
