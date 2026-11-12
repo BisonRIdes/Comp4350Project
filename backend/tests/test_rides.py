@@ -58,6 +58,18 @@ async def test_list_rides_shows_seats_left():
     assert seats_left == {taken_ride: 1, empty_ride: 3}
 
 
+async def test_list_rides_shows_driver_name():
+    driver_id = await make_user("driver", True)
+    other_driver_id = await make_user("other", True)
+    ride_id = await make_ride(driver_id)
+    other_ride_id = await make_ride(other_driver_id)
+
+    response = client.get("/rides", headers=auth(driver_id))
+
+    names = {ride["id"]: ride["driver_username"] for ride in response.json()}
+    assert names == {ride_id: "driver", other_ride_id: "other"}
+
+
 async def test_list_rides_not_logged_in():
     response = client.get("/rides")
 
@@ -78,6 +90,7 @@ async def test_get_ride():
     body = response.json()
     assert body["id"] == ride_id
     assert body["driver_id"] == driver_id
+    assert body["driver_username"] == "driver"
     assert body["origin_point"] == POINT
     assert body["departure_time"] == TIME
     assert body["seats"] == 3
@@ -122,6 +135,7 @@ async def test_create_ride():
     assert body["seats"] == 3
     # nobody has been accepted onto a new ride yet
     assert body["seats_left"] == 3
+    assert body["driver_username"] == "driver"
     async with SessionLocal() as db:
         assert len((await db.scalars(select(Ride))).all()) == 1
 
@@ -232,6 +246,7 @@ async def test_edit_ride_seats_left_counts_accepted_riders():
     response = client.patch(f"/rides/{ride_id}", json={"seats": 4}, headers=auth(driver_id))
 
     assert response.json()["seats_left"] == 3
+    assert response.json()["driver_username"] == "driver"
 
 
 async def test_edit_ride_changes_only_sent_fields():

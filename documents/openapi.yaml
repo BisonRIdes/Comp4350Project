@@ -633,10 +633,12 @@ components:
 
     Ride:
       type: object
-      required: [id, driver_id, origin_point, departure_time, seats, price_cents, seats_left]
+      required:
+        [id, driver_id, driver_username, origin_point, departure_time, seats, price_cents, seats_left]
       properties:
         id: { type: string, format: uuid }
         driver_id: { type: string, format: uuid }
+        driver_username: { type: string, description: The student driving the ride }
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 0 }

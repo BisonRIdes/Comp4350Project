@@ -49,6 +49,7 @@ class RideOut(BaseModel):
 
     id: str
     driver_id: str
+    driver_username: str
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int
