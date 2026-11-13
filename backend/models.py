@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -67,3 +67,28 @@ class Payment(Base):
     amount_cents: Mapped[int]
     # "unpaid" until Stripe's webhook says the money arrived, then "paid"
     status: Mapped[str] = mapped_column(String(20), default="unpaid")
+class Chat(Base):
+    """A group chat or a private chat associated with a ride."""
+
+    __tablename__ = "chats"
+    __table_args__ = (UniqueConstraint("ride_id", "type", "rider_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id", ondelete="CASCADE"), index=True)
+    type: Mapped[str] = mapped_column(String(8))
+    rider_key: Mapped[str] = mapped_column(String(36), default="")
+
+
+class ChatMessage(Base):
+    """A message belonging to a ride chat."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (Index("ix_chat_messages_page", "chat_id", "created_at", "id"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    chat_id: Mapped[str] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"))
+    sender_id: Mapped[str] = mapped_column(ForeignKey(user_id))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
