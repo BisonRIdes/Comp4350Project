@@ -16,8 +16,6 @@ info:
     go straight from the browser to Stripe; this API only starts payments and hears back from Stripe
     on `POST /payments/webhook`, the one route without `x-key` (Stripe signs those calls instead).
 
-    Chat operations below are a proposed contract and are not implemented yet.
-
 servers:
   - url: http://localhost:8000
     description: Local development
@@ -36,6 +34,7 @@ tags:
   - name: Requests
   - name: Updates
   - name: Payments
+  - name: Chats
 
 paths:
   /auth/login:
@@ -494,9 +493,9 @@ paths:
       operationId: createPersonalChat
       summary: Create or find a private chat for a ride
       description: |
-        Proposed endpoint. The participants are the ride's driver and the specified
-        registered rider. The caller must be one of them. Returns the existing chat
-        if one already exists for this ride and rider.
+        The participants are the ride's driver and the specified registered rider.
+        The caller must be one of them. Returns the existing chat if one already
+        exists for this ride and rider.
       requestBody:
         required: true
         content:
@@ -526,9 +525,9 @@ paths:
       operationId: createGroupChat
       summary: Create or find the group chat for a ride
       description: |
-        Proposed endpoint. The caller must be the ride's driver or a registered
-        rider. The group consists of the driver and registered riders; returns
-        the existing chat if one already exists for the ride.
+        The caller must be the ride's driver or a registered rider. The group
+        consists of the driver and registered riders; returns the existing chat
+        if one already exists for the ride.
       responses:
         "200":
           description: Existing group chat
@@ -550,7 +549,7 @@ paths:
       tags: [Chats]
       operationId: listChats
       summary: List the logged-in user's chats
-      description: Proposed endpoint. Only chats the caller may access are returned.
+      description: Only chats the caller may access are returned.
       responses:
         "200":
           description: Chats accessible to the logged-in user
@@ -569,8 +568,8 @@ paths:
       operationId: listChatMessages
       summary: Get a page of messages in a chat
       description: |
-        Proposed endpoint. Only current chat participants may read messages.
-        Messages are returned newest first; pass `next_cursor` to fetch older messages.
+        Only current chat participants may read messages. Messages are returned
+        newest first; pass `next_cursor` to fetch older messages.
       parameters:
         - name: cursor
           in: query
@@ -594,8 +593,8 @@ paths:
       operationId: sendChatMessage
       summary: Send a message to a chat
       description: |
-        Proposed endpoint. Only current chat participants may send messages.
-        The sender is determined from the login token, not the request body.
+        Only current chat participants may send messages. The sender is determined
+        from the login token, not the request body.
       requestBody:
         required: true
         content:
@@ -689,8 +688,10 @@ components:
     Chat:
       type: object
       description: |
-        Proposed ride chat. Membership follows current ride registrations, so
-        a rider who cancels loses access. This policy may be revisited.
+        A chat associated with a ride. A personal chat includes the driver and
+        its registered rider; a group chat includes the driver and all registered
+        riders. Access follows current registrations, so cancelling a ride
+        registration removes chat access.
       required: [id, ride_id, type, participant_ids]
       properties:
         id: { type: string, format: uuid }
