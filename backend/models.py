@@ -67,7 +67,8 @@ class Payment(Base):
     amount_cents: Mapped[int]
     # "unpaid" until Stripe's webhook says the money arrived, then "paid"
     status: Mapped[str] = mapped_column(String(20), default="unpaid")
-class Chat(Base):
+
+class ChatRecord(Base):
     """A group chat or a private chat associated with a ride."""
 
     __tablename__ = "chats"
@@ -79,7 +80,7 @@ class Chat(Base):
     rider_key: Mapped[str] = mapped_column(String(36), default="")
 
 
-class ChatMessage(Base):
+class MessageRecord(Base):
     """A message belonging to a ride chat."""
 
     __tablename__ = "chat_messages"
