@@ -68,6 +68,7 @@ class Payment(Base):
     # "unpaid" until Stripe's webhook says the money arrived, then "paid"
     status: Mapped[str] = mapped_column(String(20), default="unpaid")
 
+
 class ChatRecord(Base):
     """A group chat or a private chat associated with a ride."""
 

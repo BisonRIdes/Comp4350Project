@@ -200,8 +200,10 @@ class LoginResponse(BaseModel):
     token_type: Literal["bearer"] = "bearer"
     user: UserResponse
 
+
 class CreatePersonalChatRequest(BaseModel):
     rider_id: str
+
 
 class Chat(BaseModel):
     id: str
@@ -209,8 +211,10 @@ class Chat(BaseModel):
     type: str
     participant_ids: list[str]
 
+
 class SendMessageRequest(BaseModel):
     content: str
+
 
 class ChatMessage(BaseModel):
     id: str
@@ -218,6 +222,7 @@ class ChatMessage(BaseModel):
     sender_id: str
     content: str
     created_at: str
+
 
 class MessagePage(BaseModel):
     """A page of messages and an optional cursor for older messages."""
