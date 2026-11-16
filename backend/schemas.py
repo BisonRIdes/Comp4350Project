@@ -112,11 +112,20 @@ class RideDetoursOut(BaseModel):
     detours: list[Detour]
 
 
+class RideRequestDetailsOut(RideRequestOut):
+    """A ride request with who asked, who drives, and when and where the ride leaves."""
+
+    rider_username: str
+    driver_username: str
+    departure_time: datetime
+    origin_point: GeoJSONPoint
+
+
 class UpdatesOut(BaseModel):
     """Everything the page needs to refresh for one user."""
 
-    pending_requests: list[RideRequestOut]
-    request_updates: list[RideRequestOut]
+    pending_requests: list[RideRequestDetailsOut]
+    request_updates: list[RideRequestDetailsOut]
 
 
 class CreateUserRequest(BaseModel):
