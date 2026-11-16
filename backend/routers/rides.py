@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Ride, RideDetour, RideRegistration, RideRequest, User
-from schemas import CreateRideBody, RideDetoursOut, RideOut, UpdateRideBody
+from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
 from util.auth import CurrentUser, get_current_user
+from util.ride_utils import get_distance
 
 # every rides route needs a logged-in student
 router = APIRouter(prefix="/rides", tags=["rides"], dependencies=[Depends(get_current_user)])
@@ -95,7 +96,7 @@ async def delete_ride(
     await db.commit()
 
 
-# get all detours for a specific ride
+# get all detours for a specific ride with detour points in ascending order
 @router.get("/{ride_id}/detours", status_code=200)
 async def get_detours(
     ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
@@ -109,7 +110,12 @@ async def get_detours(
     db_detours = await db.execute(select(RideDetour).where(RideDetour.ride_id == ride_id))
 
     detours = [
-        {"owner_id": d.owner_id, "detour_point": d.detour_point} for d in db_detours.scalars().all()
+        {"owner_id": d.owner_id, "detour_point": GeoJSONPoint.model_validate(d.detour_point)}
+        for d in db_detours.scalars().all()
     ]
+
+    # sort based on distance from ride origin
+    origin = GeoJSONPoint.model_validate(ride.origin_point)
+    detours.sort(key=lambda detour: get_distance(origin, detour["detour_point"]))
 
     return RideDetoursOut(ride_id=ride.id, detours=detours)
