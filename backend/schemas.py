@@ -49,10 +49,13 @@ class RideOut(BaseModel):
 
     id: str
     driver_id: str
+    driver_username: str
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int
     price_cents: int | None
+    # seats not yet taken by accepted riders, whether they've paid or not
+    seats_left: int
 
 
 class CreateRideBody(BaseModel):

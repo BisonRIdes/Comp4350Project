@@ -64,6 +64,20 @@ async def test_create_ride_request_ignores_rider_id_in_body():
     assert response.json()["rider_id"] == rider_id
 
 
+async def test_create_ride_request_full_ride():
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id, seats=1)
+    await make_registration(ride_id, await make_user("charlie", False))
+    rider_id = await make_user("bob", False)
+
+    response = client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id))
+
+    assert response.status_code == 400
+    # nothing was saved, so the driver isn't shown a request they can never accept
+    async with SessionLocal() as db:
+        assert await db.scalar(select(RideRequest)) is None
+
+
 async def test_create_ride_request_not_logged_in():
     driver_id = await make_user("alice", True)
     ride_id = await make_ride(driver_id)
@@ -186,7 +200,8 @@ async def test_accept_ride_request_at_capacity():
     ride_id = await make_ride(driver_id, seats=1)
     await make_registration(ride_id, existing_rider_id)
 
-    request_id = request_ride(ride_id, rider_id)
+    # made directly, since asking through the API is now refused once the ride is full
+    request_id = await make_request(ride_id, rider_id)
     response = client.patch(f"/requests/{request_id}/accept", headers=auth(driver_id))
 
     assert response.status_code == 400

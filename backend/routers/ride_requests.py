@@ -11,6 +11,7 @@ from schemas import RideRegistrationOut, RideRequestDetailsOut, RideRequestOut
 from util import stripe_api
 from util.auth import CurrentUser, get_current_user
 from util.request_details import request_details_query
+from util.seats import count_accepted
 
 # every ride request route needs a logged-in student
 router = APIRouter(tags=["ride requests"], dependencies=[Depends(get_current_user)])
@@ -77,6 +78,10 @@ async def create_ride_request(
     if duplicate_registers is not None:
         raise HTTPException(status_code=409, detail="Rider has already registered for this ride")
 
+    # every seat is taken by an accepted rider, so the driver couldn't accept this request anyway
+    if await count_accepted(ride_id, db) >= ride.seats:
+        raise HTTPException(status_code=400, detail="This ride is full")
+
     ride_request = RideRequest(
         ride_id=ride_id,
         rider_id=user.id,
@@ -97,10 +102,7 @@ async def accept_ride_request(
     await check_driver(ride.driver_id, user.id, db)
 
     # check if there is any seat availability
-    registrations = await db.execute(
-        select(RideRegistration).where(RideRegistration.ride_id == ride_request.ride_id)
-    )
-    if len(registrations.scalars().all()) >= ride.seats:
+    if await count_accepted(ride_request.ride_id, db) >= ride.seats:
         raise HTTPException(status_code=400, detail="Cannot accept. Ride is at capacity")
 
     # change status of ride_request entry
