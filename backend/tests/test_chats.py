@@ -124,10 +124,7 @@ async def test_concurrent_create_chat_reuses_the_winning_chat(kind, monkeypatch)
 
     responses = [Response(), Response()]
     chats = await asyncio.gather(
-        *(
-            find_or_create_chat(ride_id, kind, rider_key, response)
-            for response in responses
-        )
+        *(find_or_create_chat(ride_id, kind, rider_key, response) for response in responses)
     )
 
     assert sorted(response.status_code for response in responses) == [200, 201]
