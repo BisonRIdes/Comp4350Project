@@ -78,7 +78,9 @@ async def test_create_ride_request_full_ride():
     await make_registration(ride_id, await make_user("charlie", False))
     rider_id = await make_user("bob", False)
 
-    response = client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id))
+    response = client.post(
+        f"/rides/{ride_id}/requests", headers=auth(rider_id), json={"detour_point": POINT}
+    )
 
     assert response.status_code == 400
     # nothing was saved, so the driver isn't shown a request they can never accept
