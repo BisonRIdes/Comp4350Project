@@ -35,6 +35,33 @@ async def test_create_personal_chat_and_reuse_existing_chat():
     assert reused.json()["id"] == chat["id"]
 
 
+async def test_registered_rider_can_create_private_chat_with_driver():
+
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    other_rider_id = await make_user("other")
+    ride_id = await make_ride(driver_id)
+
+    await make_registration(ride_id, rider_id)
+    await make_registration(ride_id, other_rider_id)
+
+    response = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": rider_id},
+        headers=auth(rider_id),
+    )
+
+    assert response.status_code == 201
+    chat = response.json()
+    assert chat["type"] == "personal"
+    assert chat["participant_ids"] == [driver_id, rider_id]
+
+    other_rider_chats = client.get("/chats", headers=auth(other_rider_id))
+
+    assert other_rider_chats.status_code == 200
+    assert all(item["id"] != chat["id"] for item in other_rider_chats.json())
+
+
 @pytest.mark.parametrize("caller", ["outsider", "driver"])
 async def test_create_personal_chat_requires_registered_rider_and_participant(caller):
     driver_id = await make_user("driver", True)
