@@ -4,7 +4,8 @@ from sqlalchemy import select
 
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
-from tests.helpers import POINT, auth, client, make_detour, make_ride, make_user
+from schemas import Detour
+from tests.helpers import DETOUR_POINTS, POINT, auth, client, make_detour, make_ride, make_user
 
 TIME = "2026-11-01T14:30:00"
 
@@ -269,7 +270,7 @@ async def test_get_detours():
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider", False)
     ride_id = await make_ride(driver_id)
-    await make_detour(ride_id, rider_id)
+    await make_detour(ride_id, rider_id, DETOUR_POINTS[0])
 
     response = client.get(f"/rides/{ride_id}/detours", headers=auth(driver_id))
 
@@ -278,16 +279,16 @@ async def test_get_detours():
     assert body["ride_id"] == ride_id
     assert len(body["detours"]) == 1
     assert body["detours"][0]["owner_id"] == rider_id
-    assert body["detours"][0]["detour_point"] == POINT
+    assert body["detours"][0]["detour_point"] == DETOUR_POINTS[0]
 
 
-async def test_get_detours_multiple_detours():
+async def test_get_detours_multiple_detours_sorted():
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider", False)
     rider2_id = await make_user("rider2", False)
     ride_id = await make_ride(driver_id)
-    await make_detour(ride_id, rider_id)
-    await make_detour(ride_id, rider2_id)
+    await make_detour(ride_id, rider_id, DETOUR_POINTS[0])
+    await make_detour(ride_id, rider2_id, DETOUR_POINTS[1])
 
     response = client.get(f"/rides/{ride_id}/detours", headers=auth(driver_id))
 
@@ -295,6 +296,12 @@ async def test_get_detours_multiple_detours():
     body = response.json()
     assert body["ride_id"] == ride_id
     assert len(body["detours"]) == 2
+    detourFar = Detour.model_validate(body["detours"][0])
+    detourClose = Detour.model_validate(body["detours"][1])
+    assert detourFar.detour_point.coordinates[0] == DETOUR_POINTS[1]["coordinates"][0]
+    assert detourFar.detour_point.coordinates[1] == DETOUR_POINTS[1]["coordinates"][1]
+    assert detourClose.detour_point.coordinates[0] == DETOUR_POINTS[0]["coordinates"][0]
+    assert detourClose.detour_point.coordinates[1] == DETOUR_POINTS[0]["coordinates"][1]
 
 
 async def test_get_detours_no_detours():
@@ -313,7 +320,7 @@ async def test_get_detours_nonexistent_ride():
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider", False)
     ride_id = await make_ride(driver_id)
-    await make_detour(ride_id, rider_id)
+    await make_detour(ride_id, rider_id, DETOUR_POINTS[0])
 
     response = client.get("/rides/999/detours", headers=auth(driver_id))
 
