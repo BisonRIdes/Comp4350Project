@@ -1,10 +1,25 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import Response
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import SessionLocal
-from models import MessageRecord, RideRegistration
-from tests.helpers import auth, client, make_registration, make_ride, make_user
+from models import ChatRecord, MessageRecord, RideRegistration
+from tests.helpers import (
+    auth,
+    client,
+    find_or_create_chat,
+    make_registration,
+    make_ride,
+    make_user,
+    synchronize_session_commits,
+)
+from util.chat_utils import find_or_create
 
 
 async def test_create_personal_chat_and_reuse_existing_chat():
@@ -36,7 +51,6 @@ async def test_create_personal_chat_and_reuse_existing_chat():
 
 
 async def test_registered_rider_can_create_private_chat_with_driver():
-
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider")
     other_rider_id = await make_user("other")
@@ -60,6 +74,89 @@ async def test_registered_rider_can_create_private_chat_with_driver():
 
     assert other_rider_chats.status_code == 200
     assert all(item["id"] != chat["id"] for item in other_rider_chats.json())
+
+
+async def test_each_rider_gets_a_separate_personal_chat_with_driver():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    other_rider_id = await make_user("other")
+    ride_id = await make_ride(driver_id)
+    await make_registration(ride_id, rider_id)
+    await make_registration(ride_id, other_rider_id)
+
+    rider_response = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": rider_id},
+        headers=auth(rider_id),
+    )
+    other_rider_response = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": other_rider_id},
+        headers=auth(other_rider_id),
+    )
+
+    assert rider_response.status_code == 201
+    assert other_rider_response.status_code == 201
+    rider_chat = rider_response.json()
+    other_rider_chat = other_rider_response.json()
+    assert rider_chat["id"] != other_rider_chat["id"]
+    assert rider_chat["participant_ids"] == [driver_id, rider_id]
+    assert other_rider_chat["participant_ids"] == [driver_id, other_rider_id]
+
+    rider_chats = client.get("/chats", headers=auth(rider_id)).json()
+    other_rider_chats = client.get("/chats", headers=auth(other_rider_id)).json()
+    driver_chats = client.get("/chats", headers=auth(driver_id)).json()
+    assert {chat["id"] for chat in rider_chats} == {rider_chat["id"]}
+    assert {chat["id"] for chat in other_rider_chats} == {other_rider_chat["id"]}
+    assert {chat["id"] for chat in driver_chats} == {
+        rider_chat["id"],
+        other_rider_chat["id"],
+    }
+
+
+@pytest.mark.parametrize("kind", ["personal", "group"])
+async def test_concurrent_create_chat_reuses_the_winning_chat(kind, monkeypatch):
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id)
+    rider_key = rider_id if kind == "personal" else ""
+    synchronize_session_commits(monkeypatch)
+
+    responses = [Response(), Response()]
+    chats = await asyncio.gather(
+        *(
+            find_or_create_chat(ride_id, kind, rider_key, response)
+            for response in responses
+        )
+    )
+
+    assert sorted(response.status_code for response in responses) == [200, 201]
+    assert chats[0].id == chats[1].id
+    async with SessionLocal() as db:
+        saved_chats = list(
+            (
+                await db.scalars(
+                    select(ChatRecord).where(
+                        ChatRecord.ride_id == ride_id,
+                        ChatRecord.type == kind,
+                        ChatRecord.rider_key == rider_key,
+                    )
+                )
+            ).all()
+        )
+    assert len(saved_chats) == 1
+
+
+async def test_create_chat_reraises_integrity_error_when_no_concurrent_chat_exists():
+    db = AsyncMock(spec=AsyncSession)
+    db.scalar.return_value = None
+    db.commit.side_effect = IntegrityError("INSERT", {}, Exception("constraint violation"))
+
+    with pytest.raises(IntegrityError, match="constraint violation"):
+        await find_or_create(db, "ride-id", "personal", "rider-id", Response())
+
+    db.rollback.assert_awaited_once()
+    assert db.scalar.await_count == 2
 
 
 @pytest.mark.parametrize("caller", ["outsider", "driver"])

@@ -1,5 +1,6 @@
 """Shared setup for API tests: a client with the API key and helpers to seed the DB."""
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -8,11 +9,14 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
+from fastapi import Response
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import SessionLocal
 from main import app
-from models import Payment, Ride, RideRegistration, RideRequest, User
+from models import ChatRecord, Payment, Ride, RideRegistration, RideRequest, User
+from util.chat_utils import find_or_create
 from util.security import hash_password
 from util.tokens import create_token
 
@@ -81,6 +85,29 @@ async def make_registration(ride: str, rider: str):
         reg = RideRegistration(ride_id=ride, rider_id=rider)
         db.add(reg)
         await db.commit()
+
+
+def synchronize_session_commits(monkeypatch, expected_commits: int = 2) -> None:
+    both_ready_to_commit = asyncio.Event()
+    commit_count = 0
+    original_commit = AsyncSession.commit
+
+    async def synchronized_commit(session):
+        nonlocal commit_count
+        commit_count += 1
+        if commit_count == expected_commits:
+            both_ready_to_commit.set()
+        await both_ready_to_commit.wait()
+        await original_commit(session)
+
+    monkeypatch.setattr(AsyncSession, "commit", synchronized_commit)
+
+
+async def find_or_create_chat(
+    ride_id: str, kind: str, rider_key: str, response: Response
+) -> ChatRecord:
+    async with SessionLocal() as db:
+        return await find_or_create(db, ride_id, kind, rider_key, response)
 
 
 async def make_payment(request_id: str, status: str = "unpaid", amount_cents: int = 500):
