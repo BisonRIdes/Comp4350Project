@@ -12,3 +12,5 @@ STUDENT_EMAIL_DOMAIN: Final = "myumanitoba.ca"
 ACCESS_TOKEN_HOURS: Final = 24
 # How long the link in the verification email works.
 VERIFY_TOKEN_HOURS: Final = 24
+
+U_OF_M_COORD = {"type": "Point", "coordinates": [-97.14, 49.81]}

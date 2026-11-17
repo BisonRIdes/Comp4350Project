@@ -9,6 +9,7 @@ from database import get_db
 from models import Ride, RideDetour, RideRegistration, RideRequest, User
 from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
 from util.auth import CurrentUser, get_current_user
+from util.constants import U_OF_M_COORD
 from util.ride_utils import get_distance
 
 # every rides route needs a logged-in student
@@ -96,7 +97,7 @@ async def delete_ride(
     await db.commit()
 
 
-# get all detours for a specific ride with detour points in ascending order
+# get all detours for a specific ride with detour points ordered from furthest away from U of M to closest
 @router.get("/{ride_id}/detours", status_code=200)
 async def get_detours(
     ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
@@ -115,7 +116,7 @@ async def get_detours(
     ]
 
     # sort based on distance from ride origin
-    origin = GeoJSONPoint.model_validate(ride.origin_point)
-    detours.sort(key=lambda detour: get_distance(origin, detour["detour_point"]))
+    uni = GeoJSONPoint.model_validate(U_OF_M_COORD)
+    detours.sort(key=lambda detour: get_distance(uni, detour["detour_point"]), reverse=True)
 
     return RideDetoursOut(ride_id=ride.id, detours=detours)
