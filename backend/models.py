@@ -64,8 +64,8 @@ class RideDetour(Base):
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
     detour_point: Mapped[dict] = mapped_column(JSON)
-      
-      
+
+
 class Payment(Base):
     """A rider's card payment for their seat on a ride. Stripe keeps the card details and history."""
 

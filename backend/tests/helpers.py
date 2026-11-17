@@ -94,8 +94,8 @@ async def make_detour(ride: str, owner: str, point: GeoJSONPoint):
         detour = RideDetour(ride_id=ride, owner_id=owner, detour_point=point)
         db.add(detour)
         await db.commit()
-        
-        
+
+
 async def make_payment(request_id: str, status: str = "unpaid", amount_cents: int = 500):
     async with SessionLocal() as db:
         db.add(
