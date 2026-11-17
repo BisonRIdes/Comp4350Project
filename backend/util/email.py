@@ -1,7 +1,7 @@
-"""Sends the account verification email through Resend's HTTP API.
+"""Sends emails (account verification, payment receipts) through Resend's HTTP API.
 
-Without RESEND_API_KEY (local development and tests) the link is only logged, so you can copy it
-from the server output instead of needing a real inbox.
+Without RESEND_API_KEY (local development and tests) the email is only logged, so you can copy the
+link from the server output instead of needing a real inbox.
 """
 
 import asyncio
@@ -38,33 +38,56 @@ def _post_to_resend(api_key: str, message: dict) -> None:
         pass
 
 
-async def send_verification_email(to: str, token: str) -> None:
-    """Email `to` the link that verifies their account.
+def _frontend_url() -> str:
+    return os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-    Never raises: a failed email shouldn't undo a sign-up, and the student can ask for a new link.
+
+async def _send(to: str, subject: str, text: str) -> None:
+    """Email `to` a plain-text message.
+
+    Never raises: a failed email shouldn't undo what the student just did (signing up, paying).
     """
-    link = f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/verify?token={token}"
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
-        logger.warning("RESEND_API_KEY is not set. Verification link for %s: %s", to, link)
+        logger.warning("RESEND_API_KEY is not set. Email to %s: %s", to, text)
         return
 
     message = {
         "from": os.getenv("EMAIL_FROM", "BisonRides <onboarding@resend.dev>"),
         "to": [to],
-        "subject": "Verify your BisonRides account",
-        "text": (
-            "Welcome to BisonRides!\n\n"
-            f"Open this link to verify your student email: {link}\n\n"
-            f"The link works for {VERIFY_TOKEN_HOURS} hours."
-        ),
+        "subject": subject,
+        "text": text,
     }
     try:
         await asyncio.to_thread(_post_to_resend, api_key, message)
     except urllib.error.HTTPError as error:
         # Resend says what's wrong in the body (e.g. an unverified sender), so log that too.
         detail = error.read()[:300].decode(errors="replace")
-        logger.error("Could not send verification email to %s: %s %s", to, error, detail)
+        logger.error("Could not send %r to %s: %s %s", subject, to, error, detail)
     except OSError as error:
         # URLError, HTTP errors, timeouts and dropped connections are all OSErrors.
-        logger.error("Could not send verification email to %s: %s", to, error)
+        logger.error("Could not send %r to %s: %s", subject, to, error)
+
+
+async def send_verification_email(to: str, token: str) -> None:
+    """Email `to` the link that verifies their account. The student can ask for a new link."""
+    link = f"{_frontend_url()}/verify?token={token}"
+    await _send(
+        to,
+        "Verify your BisonRides account",
+        "Welcome to BisonRides!\n\n"
+        f"Open this link to verify your student email: {link}\n\n"
+        f"The link works for {VERIFY_TOKEN_HOURS} hours.",
+    )
+
+
+async def send_payment_receipt(to: str, request_id: str, amount_cents: int) -> None:
+    """Tell a rider their payment went through and their seat is confirmed."""
+    link = f"{_frontend_url()}/requests/{request_id}/pay"
+    await _send(
+        to,
+        "Your BisonRides seat is paid",
+        f"Your payment of ${amount_cents / 100:.2f} CAD went through, so your seat is confirmed.\n\n"
+        f"Ride details: {link}\n\n"
+        "If you cancel your seat, you get the full amount back.",
+    )

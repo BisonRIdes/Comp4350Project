@@ -1,13 +1,13 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
 from schemas import Detour
-from tests.helpers import DETOUR_POINTS, POINT, auth, client, make_detour, make_ride, make_user
+from tests.helpers import DETOUR_POINTS, POINT, auth, client, make_detour, make_registration, make_ride, make_user
 
-TIME = "2026-11-01T14:30:00"
+TIME = "2026-11-01T14:30:00Z"
 
 # list rides
 
@@ -26,12 +26,16 @@ async def test_list_rides_returns_rides_soonest_first():
     async with SessionLocal() as db:
         db.add(
             Ride(
-                driver_id=driver_id, origin_point=POINT, departure_time=datetime(2026, 12, 1, 9, 0)
+                driver_id=driver_id,
+                origin_point=POINT,
+                departure_time=datetime(2026, 12, 1, 9, 0, tzinfo=UTC),
             )
         )
         db.add(
             Ride(
-                driver_id=driver_id, origin_point=POINT, departure_time=datetime(2026, 11, 1, 9, 0)
+                driver_id=driver_id,
+                origin_point=POINT,
+                departure_time=datetime(2026, 11, 1, 9, 0, tzinfo=UTC),
             )
         )
         await db.commit()
@@ -40,7 +44,31 @@ async def test_list_rides_returns_rides_soonest_first():
 
     assert response.status_code == 200
     times = [ride["departure_time"] for ride in response.json()]
-    assert times == ["2026-11-01T09:00:00", "2026-12-01T09:00:00"]
+    assert times == ["2026-11-01T09:00:00Z", "2026-12-01T09:00:00Z"]
+
+
+async def test_list_rides_shows_seats_left():
+    driver_id = await make_user("driver", True)
+    taken_ride = await make_ride(driver_id, seats=2)
+    await make_registration(taken_ride, await make_user("rider"))
+    empty_ride = await make_ride(driver_id, seats=3)
+
+    response = client.get("/rides", headers=auth(driver_id))
+
+    seats_left = {ride["id"]: ride["seats_left"] for ride in response.json()}
+    assert seats_left == {taken_ride: 1, empty_ride: 3}
+
+
+async def test_list_rides_shows_driver_name():
+    driver_id = await make_user("driver", True)
+    other_driver_id = await make_user("other", True)
+    ride_id = await make_ride(driver_id)
+    other_ride_id = await make_ride(other_driver_id)
+
+    response = client.get("/rides", headers=auth(driver_id))
+
+    names = {ride["id"]: ride["driver_username"] for ride in response.json()}
+    assert names == {ride_id: "driver", other_ride_id: "other"}
 
 
 async def test_list_rides_not_logged_in():
@@ -63,9 +91,21 @@ async def test_get_ride():
     body = response.json()
     assert body["id"] == ride_id
     assert body["driver_id"] == driver_id
+    assert body["driver_username"] == "driver"
     assert body["origin_point"] == POINT
     assert body["departure_time"] == TIME
     assert body["seats"] == 3
+
+
+async def test_get_ride_shows_seats_left():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=1)
+    rider_id = await make_user("rider")
+    await make_registration(ride_id, rider_id)
+
+    response = client.get(f"/rides/{ride_id}", headers=auth(rider_id))
+
+    assert response.json()["seats_left"] == 0
 
 
 async def test_get_ride_not_found():
@@ -94,6 +134,9 @@ async def test_create_ride():
     assert body["driver_id"] == driver_id
     assert body["origin_point"] == POINT
     assert body["seats"] == 3
+    # nobody has been accepted onto a new ride yet
+    assert body["seats_left"] == 3
+    assert body["driver_username"] == "driver"
     async with SessionLocal() as db:
         assert len((await db.scalars(select(Ride))).all()) == 1
 
@@ -109,6 +152,44 @@ async def test_create_ride_defaults_to_one_seat():
 
     assert response.status_code == 201
     assert response.json()["seats"] == 1
+
+
+async def test_create_ride_saves_the_price_per_seat():
+    driver_id = await make_user("driver", True)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME, "price_cents": 500},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["price_cents"] == 500
+
+
+async def test_create_ride_without_a_price():
+    driver_id = await make_user("driver", True)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["price_cents"] is None
+
+
+async def test_create_ride_price_below_stripes_minimum():
+    driver_id = await make_user("driver", True)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME, "price_cents": 49},
+        headers=auth(driver_id),
+    )
+
+    assert response.status_code == 422
 
 
 async def test_create_ride_ignores_driver_id_in_body():
@@ -158,6 +239,17 @@ async def test_create_ride_invalid_body():
 # edit ride
 
 
+async def test_edit_ride_seats_left_counts_accepted_riders():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=2)
+    await make_registration(ride_id, await make_user("rider"))
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 4}, headers=auth(driver_id))
+
+    assert response.json()["seats_left"] == 3
+    assert response.json()["driver_username"] == "driver"
+
+
 async def test_edit_ride_changes_only_sent_fields():
     driver_id = await make_user("driver", True)
     ride_id = await make_ride(driver_id, seats=2)
@@ -168,7 +260,7 @@ async def test_edit_ride_changes_only_sent_fields():
     body = response.json()
     assert body["seats"] == 4
     assert body["origin_point"] == POINT
-    assert body["departure_time"] == "2026-11-01T14:30:00"
+    assert body["departure_time"] == "2026-11-01T14:30:00Z"
 
 
 async def test_edit_ride_changes_point_and_time():
@@ -178,13 +270,23 @@ async def test_edit_ride_changes_point_and_time():
 
     response = client.patch(
         f"/rides/{ride_id}",
-        json={"origin_point": new_point, "departure_time": "2026-11-02T08:00:00"},
+        json={"origin_point": new_point, "departure_time": "2026-11-02T08:00:00Z"},
         headers=auth(driver_id),
     )
 
     assert response.status_code == 200
     assert response.json()["origin_point"] == new_point
-    assert response.json()["departure_time"] == "2026-11-02T08:00:00"
+    assert response.json()["departure_time"] == "2026-11-02T08:00:00Z"
+
+
+async def test_edit_ride_price():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, price_cents=500)
+
+    response = client.patch(f"/rides/{ride_id}", json={"price_cents": 650}, headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json()["price_cents"] == 650
 
 
 async def test_edit_ride_not_found():
@@ -223,6 +325,36 @@ async def test_edit_ride_negative_seats():
     response = client.patch(f"/rides/{ride_id}", json={"seats": -1}, headers=auth(driver_id))
 
     assert response.status_code == 422
+
+
+async def test_edit_ride_seats_below_accepted_riders_is_blocked():
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    async with SessionLocal() as db:
+        for name in ("rider1", "rider2"):
+            rider_id = await make_user(name)
+            db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
+        await db.commit()
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 1}, headers=auth(driver_id))
+
+    assert response.status_code == 409
+    async with SessionLocal() as db:
+        assert (await db.get(Ride, ride_id)).seats == 3
+
+
+async def test_edit_ride_seats_equal_to_accepted_riders():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id, seats=3)
+    async with SessionLocal() as db:
+        db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
+        await db.commit()
+
+    response = client.patch(f"/rides/{ride_id}", json={"seats": 1}, headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json()["seats"] == 1
 
 
 # delete ride

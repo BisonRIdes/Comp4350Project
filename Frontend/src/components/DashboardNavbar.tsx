@@ -3,10 +3,12 @@ import { Link, NavLink, useNavigate } from 'react-router'
 import { Icon } from './Icon'
 import { icons } from './icons'
 import { getUser, logout } from '../lib/auth'
+import { useUpdates } from '../hooks/useUpdates'
 
 const appLinks = [
   { to: '/post-ride', label: 'Post Ride' },
   { to: '/dashboard', label: 'Find Ride' },
+  { to: '/notifications', label: 'Notifications' },
   { to: '/map', label: 'Map' },
 ]
 
@@ -16,6 +18,10 @@ export function DashboardNavbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const user = getUser()
+  // Shown on the Notifications link from any page: requests waiting on the driver, plus answers
+  // the rider hasn't read.
+  const { pendingRequests, unreadDecisions } = useUpdates()
+  const notificationCount = pendingRequests.length + unreadDecisions.length
 
   // Close the profile menu on an outside click or Escape.
   useEffect(() => {
@@ -60,6 +66,12 @@ export function DashboardNavbar() {
                 }
               >
                 {link.label}
+                {link.to === '/notifications' && notificationCount > 0 && (
+                  <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
+                    {notificationCount}
+                    <span className="sr-only"> unread</span>
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
@@ -94,6 +106,14 @@ export function DashboardNavbar() {
                   className="block rounded-xl px-3 py-2 text-ink transition-colors duration-300 hover:bg-mist"
                 >
                   Profile
+                </Link>
+                <Link
+                  to="/history"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-xl px-3 py-2 text-ink transition-colors duration-300 hover:bg-mist"
+                >
+                  Request history
                 </Link>
                 <button
                   type="button"

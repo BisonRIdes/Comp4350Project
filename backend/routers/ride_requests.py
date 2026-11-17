@@ -7,15 +7,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideDetour, RideRegistration, RideRequest, User
+from models import Payment, Ride, RideDetour, RideRegistration, RideRequest, User
 from schemas import (
     CreateRideRequestBody,
     RideRegistrationOut,
     RideRequestDetailsOut,
     RideRequestOut,
 )
+from util import stripe_api
 from util.auth import CurrentUser, get_current_user
 from util.request_details import request_details_query
+from util.seats import count_accepted
 
 # every ride request route needs a logged-in student
 router = APIRouter(tags=["ride requests"], dependencies=[Depends(get_current_user)])
@@ -85,6 +87,10 @@ async def create_ride_request(
     if duplicate_registers is not None:
         raise HTTPException(status_code=409, detail="Rider has already registered for this ride")
 
+    # every seat is taken by an accepted rider, so the driver couldn't accept this request anyway
+    if await count_accepted(ride_id, db) >= ride.seats:
+        raise HTTPException(status_code=400, detail="This ride is full")
+
     ride_request = RideRequest(
         ride_id=ride_id,
         rider_id=user.id,
@@ -106,10 +112,7 @@ async def accept_ride_request(
     await check_driver(ride.driver_id, user.id, db)
 
     # check if there is any seat availability
-    registrations = await db.execute(
-        select(RideRegistration).where(RideRegistration.ride_id == ride_request.ride_id)
-    )
-    if len(registrations.scalars().all()) >= ride.seats:
+    if await count_accepted(ride_request.ride_id, db) >= ride.seats:
         raise HTTPException(status_code=400, detail="Cannot accept. Ride is at capacity")
 
     # change status of ride_request entry
@@ -170,6 +173,16 @@ async def cancel_ride_request(
 
     if ride_request.rider_id != user.id:
         raise HTTPException(status_code=403, detail="User is not authorized to cancel this request")
+
+    payment = await db.get(Payment, request_id)
+    if payment is not None:
+        # money first: if Stripe can't refund right now, the rider keeps the seat and can retry
+        if payment.status == "paid":
+            await stripe_api.refund_payment(payment.stripe_payment_id)
+        else:
+            # so a payment form still open in another tab can't charge them later
+            await stripe_api.cancel_payment(payment.stripe_payment_id)
+        await db.execute(delete(Payment).where(Payment.request_id == request_id))
 
     if ride_request.status == "accepted":
         await db.execute(

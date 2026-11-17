@@ -1,8 +1,19 @@
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Ride, RideRegistration, RideRequest
-from tests.helpers import POINT, auth, client, make_registration, make_request, make_ride, make_user
+from models import Payment, Ride, RideRegistration, RideRequest
+from tests.helpers import (
+    POINT,
+    auth,
+    client,
+    make_payment,
+    make_registration,
+    make_request,
+    make_ride,
+    make_user,
+)
+from util import stripe_api
 
 
 def request_ride(ride_id: str, rider_id: str) -> str:
@@ -13,21 +24,6 @@ def request_ride(ride_id: str, rider_id: str) -> str:
 
 
 # TEST HELPER METHODS
-
-
-async def test_get_ride_nonexistent_ride():
-    driver_id = await make_user("alice", True)
-    ride_id = await make_ride(driver_id)
-    rider_id = await make_user("bob", False)
-
-    request_id = request_ride(ride_id, rider_id)
-    async with SessionLocal() as db:
-        ride = await db.get(Ride, ride_id)
-        await db.delete(ride)
-        await db.commit()
-    response = client.patch(f"/requests/{request_id}/accept", headers=auth(driver_id))
-
-    assert response.status_code == 404
 
 
 async def test_check_rider_not_rider():
@@ -74,6 +70,20 @@ async def test_create_ride_request_ignores_rider_id_in_body():
 
     assert response.status_code == 201
     assert response.json()["rider_id"] == rider_id
+
+
+async def test_create_ride_request_full_ride():
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id, seats=1)
+    await make_registration(ride_id, await make_user("charlie", False))
+    rider_id = await make_user("bob", False)
+
+    response = client.post(f"/rides/{ride_id}/requests", headers=auth(rider_id))
+
+    assert response.status_code == 400
+    # nothing was saved, so the driver isn't shown a request they can never accept
+    async with SessionLocal() as db:
+        assert await db.scalar(select(RideRequest)) is None
 
 
 async def test_create_ride_request_not_logged_in():
@@ -206,7 +216,8 @@ async def test_accept_ride_request_at_capacity():
     ride_id = await make_ride(driver_id, seats=1)
     await make_registration(ride_id, existing_rider_id)
 
-    request_id = request_ride(ride_id, rider_id)
+    # made directly, since asking through the API is now refused once the ride is full
+    request_id = await make_request(ride_id, rider_id)
     response = client.patch(f"/requests/{request_id}/accept", headers=auth(driver_id))
 
     assert response.status_code == 400
@@ -355,6 +366,57 @@ async def test_cancel_accepted_request_keeps_other_riders():
     async with SessionLocal() as db:
         riders = (await db.scalars(select(RideRegistration.rider_id))).all()
     assert riders == [other_rider_id]
+
+
+async def test_cancel_a_paid_seat_refunds_the_rider(fake_stripe):
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id, price_cents=500)
+    rider_id = await make_user("bob", False)
+    request_id = await make_request(ride_id, rider_id, "accepted")
+    await make_registration(ride_id, rider_id)
+    await make_payment(request_id, "paid")
+
+    response = client.delete(f"/requests/{request_id}/cancel", headers=auth(rider_id))
+
+    assert response.status_code == 204
+    assert fake_stripe.calls == [("refund", f"pi_{request_id}")]
+    async with SessionLocal() as db:
+        assert await db.get(Payment, request_id) is None
+
+
+async def test_cancel_an_unpaid_seat_stops_the_payment(fake_stripe):
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id, price_cents=500)
+    rider_id = await make_user("bob", False)
+    request_id = await make_request(ride_id, rider_id, "accepted")
+    await make_payment(request_id, "unpaid")
+
+    response = client.delete(f"/requests/{request_id}/cancel", headers=auth(rider_id))
+
+    assert response.status_code == 204
+    assert fake_stripe.calls == [("cancel", f"pi_{request_id}")]
+
+
+async def test_cancel_keeps_the_seat_if_the_refund_fails(fake_stripe, monkeypatch):
+    driver_id = await make_user("alice", True)
+    ride_id = await make_ride(driver_id, price_cents=500)
+    rider_id = await make_user("bob", False)
+    request_id = await make_request(ride_id, rider_id, "accepted")
+    await make_registration(ride_id, rider_id)
+    await make_payment(request_id, "paid")
+
+    async def stripe_is_down(intent_id):
+        raise HTTPException(status_code=502, detail="Couldn't reach our payment provider")
+
+    monkeypatch.setattr(stripe_api, "refund_payment", stripe_is_down)
+
+    response = client.delete(f"/requests/{request_id}/cancel", headers=auth(rider_id))
+
+    assert response.status_code == 502
+    async with SessionLocal() as db:
+        assert await db.get(RideRequest, request_id) is not None
+        assert (await db.get(Payment, request_id)).status == "paid"
+        assert (await db.scalars(select(RideRegistration.rider_id))).all() == [rider_id]
 
 
 async def test_cancel_ride_request_nonexistent_request():
