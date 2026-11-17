@@ -5,7 +5,16 @@ from sqlalchemy import select
 from database import SessionLocal
 from models import Ride, RideRegistration, RideRequest
 from schemas import Detour
-from tests.helpers import DETOUR_POINTS, POINT, auth, client, make_detour, make_registration, make_ride, make_user
+from tests.helpers import (
+    DETOUR_POINTS,
+    POINT,
+    auth,
+    client,
+    make_detour,
+    make_registration,
+    make_ride,
+    make_user,
+)
 
 TIME = "2026-11-01T14:30:00Z"
 
