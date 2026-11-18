@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -142,7 +142,16 @@ async def get_detours(
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
-    check_owner(ride, user)
+
+    registered_for = await db.scalar(
+        select(
+            exists().where(
+                and_(RideRegistration.ride_id == ride_id, RideRegistration.rider_id == user.id)
+            )
+        )
+    )
+    if not registered_for and ride.driver_id != user.id:
+        raise HTTPException(status_code=403, detail="not authorized to see detours for this ride")
 
     # get all detours associated with this ride
     db_detours = await db.execute(select(RideDetour).where(RideDetour.ride_id == ride_id))

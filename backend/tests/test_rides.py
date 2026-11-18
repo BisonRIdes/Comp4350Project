@@ -484,6 +484,18 @@ async def test_get_detours_no_detours():
     assert len(body["detours"]) == 0
 
 
+async def test_get_detours_unauthorized():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("riderA", False)
+    other_rider_id = await make_user("riderB", False)
+    ride_id = await make_ride(driver_id)
+    await make_detour(ride_id, rider_id, DETOUR_POINTS[0])
+
+    response = client.get(f"/rides/{ride_id}/detours", headers=auth(other_rider_id))
+
+    assert response.status_code == 403
+
+
 async def test_get_detours_nonexistent_ride():
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider", False)
