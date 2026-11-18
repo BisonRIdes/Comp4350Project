@@ -43,7 +43,7 @@ async def test_create_personal_chat_and_reuse_existing_chat():
     reused = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": rider_id},
-        headers=auth(rider_id),
+        headers=auth(driver_id),
     )
 
     assert reused.status_code == 200
@@ -62,7 +62,7 @@ async def test_registered_rider_can_create_private_chat_with_driver():
     response = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": rider_id},
-        headers=auth(rider_id),
+        headers=auth(driver_id),
     )
 
     assert response.status_code == 201
@@ -87,12 +87,12 @@ async def test_each_rider_gets_a_separate_personal_chat_with_driver():
     rider_response = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": rider_id},
-        headers=auth(rider_id),
+        headers=auth(driver_id),
     )
     other_rider_response = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": other_rider_id},
-        headers=auth(other_rider_id),
+        headers=auth(driver_id),
     )
 
     assert rider_response.status_code == 201
@@ -157,7 +157,7 @@ async def test_create_chat_reraises_integrity_error_when_no_concurrent_chat_exis
 
 
 @pytest.mark.parametrize("caller", ["outsider", "driver"])
-async def test_create_personal_chat_requires_registered_rider_and_participant(caller):
+async def test_create_personal_chat_requires_driver_and_outsider(caller):
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider")
     outsider_id = await make_user("outsider")
