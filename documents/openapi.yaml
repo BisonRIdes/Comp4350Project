@@ -701,6 +701,8 @@ components:
         participant_ids:
           type: array
           items: { type: string, format: uuid }
+          deprecated: true
+          description: "Deprecated: Use `participants` field instead."
         participants:
           description: Current usernames for the participants, in the same order as participant_ids.
           type: array
