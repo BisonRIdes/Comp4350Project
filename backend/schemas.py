@@ -205,11 +205,17 @@ class CreatePersonalChatRequest(BaseModel):
     rider_id: str
 
 
+class ChatParticipant(BaseModel):
+    id: str
+    username: str
+
+
 class Chat(BaseModel):
     id: str
     ride_id: str
     type: str
     participant_ids: list[str]
+    participants: list[ChatParticipant]
 
 
 class SendMessageRequest(BaseModel):

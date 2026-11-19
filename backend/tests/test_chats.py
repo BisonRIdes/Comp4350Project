@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import SessionLocal
-from models import ChatRecord, MessageRecord, RideRegistration
+from models import ChatRecord, MessageRecord, RideRegistration, User
 from tests.helpers import (
     auth,
     client,
@@ -39,6 +39,10 @@ async def test_create_personal_chat_and_reuse_existing_chat():
     assert chat["ride_id"] == ride_id
     assert chat["type"] == "personal"
     assert chat["participant_ids"] == [driver_id, rider_id]
+    assert chat["participants"] == [
+        {"id": driver_id, "username": "driver"},
+        {"id": rider_id, "username": "rider"},
+    ]
 
     reused = client.post(
         f"/rides/{ride_id}/chats/personal",
@@ -48,6 +52,7 @@ async def test_create_personal_chat_and_reuse_existing_chat():
 
     assert reused.status_code == 200
     assert reused.json()["id"] == chat["id"]
+    assert reused.json()["participants"] == chat["participants"]
 
 
 async def test_registered_rider_can_create_private_chat_with_driver():
@@ -215,11 +220,16 @@ async def test_create_group_chat_for_driver_and_registered_rider():
     assert chat["ride_id"] == ride_id
     assert chat["type"] == "group"
     assert chat["participant_ids"] == [driver_id, *sorted([rider_id, other_rider_id])]
+    usernames = {driver_id: "driver", rider_id: "rider", other_rider_id: "other"}
+    assert chat["participants"] == [
+        {"id": member_id, "username": usernames[member_id]} for member_id in chat["participant_ids"]
+    ]
 
     reused = client.post(f"/rides/{ride_id}/chats/group", headers=auth(driver_id))
 
     assert reused.status_code == 200
     assert reused.json()["id"] == chat["id"]
+    assert reused.json()["participants"] == chat["participants"]
 
 
 async def test_create_group_chat_rejects_nonparticipant():
@@ -255,6 +265,33 @@ async def test_list_chats_only_returns_chats_for_current_participants():
     assert {chat["id"] for chat in rider_chats.json()} == {group["id"], personal["id"]}
     assert [chat["id"] for chat in other_rider_chats.json()] == [group["id"]]
     assert outsider_chats.json() == []
+
+
+async def test_list_chats_returns_current_participant_usernames():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id)
+    await make_registration(ride_id, rider_id)
+    created = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": rider_id},
+        headers=auth(driver_id),
+    )
+    assert created.status_code == 201
+
+    async with SessionLocal() as db:
+        rider = await db.get(User, rider_id)
+        assert rider is not None
+        rider.username = "renamed"
+        await db.commit()
+
+    response = client.get("/chats", headers=auth(driver_id))
+
+    assert response.status_code == 200
+    assert response.json()[0]["participants"] == [
+        {"id": driver_id, "username": "driver"},
+        {"id": rider_id, "username": "renamed"},
+    ]
 
 
 async def test_cancelled_rider_no_longer_sees_personal_chat():

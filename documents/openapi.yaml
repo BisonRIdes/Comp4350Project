@@ -693,7 +693,7 @@ components:
         its registered rider; a group chat includes the driver and all registered
         riders. Access follows current registrations, so cancelling a ride
         registration removes chat access.
-      required: [id, ride_id, type, participant_ids]
+      required: [id, ride_id, type, participant_ids, participants]
       properties:
         id: { type: string, format: uuid }
         ride_id: { type: string, format: uuid }
@@ -701,6 +701,17 @@ components:
         participant_ids:
           type: array
           items: { type: string, format: uuid }
+        participants:
+          description: Current usernames for the participants, in the same order as participant_ids.
+          type: array
+          items: { $ref: "#/components/schemas/ChatParticipant" }
+
+    ChatParticipant:
+      type: object
+      required: [id, username]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
 
     SendMessageRequest:
       type: object

@@ -9,8 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import ChatRecord, MessageRecord, Ride, RideRegistration
-from schemas import Chat, ChatMessage, CreatePersonalChatRequest, SendMessageRequest
+from models import ChatRecord, MessageRecord, Ride, RideRegistration, User
+from schemas import (
+    Chat,
+    ChatMessage,
+    ChatParticipant,
+    CreatePersonalChatRequest,
+    SendMessageRequest,
+)
 
 
 class PersonalChatBody(CreatePersonalChatRequest):
@@ -46,8 +52,21 @@ async def participants(db: AsyncSession, chat: ChatRecord, ride: Ride) -> list[s
     )
 
 
-def chat_out(chat: ChatRecord, member_ids: list[str]) -> ChatType:
-    return ChatType(id=chat.id, ride_id=chat.ride_id, type=chat.type, participant_ids=member_ids)
+async def participant_names(db: AsyncSession, member_ids: set[str]) -> dict[str, str]:
+    rows = await db.execute(select(User.id, User.username).where(User.id.in_(member_ids)))
+    return dict(rows.all())
+
+
+def chat_out(chat: ChatRecord, member_ids: list[str], names: dict[str, str]) -> ChatType:
+    return ChatType(
+        id=chat.id,
+        ride_id=chat.ride_id,
+        type=chat.type,
+        participant_ids=member_ids,
+        participants=[
+            ChatParticipant(id=member_id, username=names[member_id]) for member_id in member_ids
+        ],
+    )
 
 
 async def accessible_chat(db: AsyncSession, chat_id: str, user_id: str) -> ChatRecord:

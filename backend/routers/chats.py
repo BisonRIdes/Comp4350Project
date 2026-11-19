@@ -19,6 +19,7 @@ from util.chat_utils import (
     find_or_create,
     get_ride,
     message_out,
+    participant_names,
     participants,
 )
 
@@ -48,7 +49,8 @@ async def create_personal_chat(
     if user.id not in (ride.driver_id, rider_id):
         raise HTTPException(status_code=403, detail="You cannot access this personal chat")
     chat = await find_or_create(db, ride.id, "personal", rider_id, response)
-    return chat_out(chat, [user.id, rider_id])
+    member_ids = [user.id, rider_id]
+    return chat_out(chat, member_ids, await participant_names(db, set(member_ids)))
 
 
 @router.post(
@@ -66,7 +68,8 @@ async def create_group_chat(
     if user.id != ride.driver_id and registration is None:
         raise HTTPException(status_code=403, detail="You cannot access this group chat")
     chat = await find_or_create(db, ride.id, "group", "", response)
-    return chat_out(chat, await participants(db, chat, ride))
+    member_ids = await participants(db, chat, ride)
+    return chat_out(chat, member_ids, await participant_names(db, set(member_ids)))
 
 
 @router.get("/chats", response_model=list[ChatType], operation_id="listChats")
@@ -79,12 +82,14 @@ async def get_chats(user: CurrentUser, db: Db) -> list[ChatType]:
         .where(or_(Ride.driver_id == user.id, ChatRecord.ride_id.in_(registered_rides)))
         .order_by(ChatRecord.id)
     )
-    result = []
+    visible_chats = []
     for chat, ride in (await db.execute(query)).all():
         member_ids = await participants(db, chat, ride)
         if user.id in member_ids:
-            result.append(chat_out(chat, member_ids))
-    return result
+            visible_chats.append((chat, member_ids))
+    member_ids = {member_id for _, ids in visible_chats for member_id in ids}
+    names = await participant_names(db, member_ids)
+    return [chat_out(chat, ids, names) for chat, ids in visible_chats]
 
 
 @router.get(
