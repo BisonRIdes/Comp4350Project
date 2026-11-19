@@ -38,7 +38,6 @@ async def test_create_personal_chat_and_reuse_existing_chat():
     chat = response.json()
     assert chat["ride_id"] == ride_id
     assert chat["type"] == "personal"
-    assert chat["participant_ids"] == [driver_id, rider_id]
     assert chat["participants"] == [
         {"id": driver_id, "username": "driver"},
         {"id": rider_id, "username": "rider"},
@@ -73,7 +72,10 @@ async def test_registered_rider_can_create_private_chat_with_driver():
     assert response.status_code == 201
     chat = response.json()
     assert chat["type"] == "personal"
-    assert chat["participant_ids"] == [driver_id, rider_id]
+    assert chat["participants"] == [
+        {"id": driver_id, "username": "driver"},
+        {"id": rider_id, "username": "rider"},
+    ]
 
     other_rider_chats = client.get("/chats", headers=auth(other_rider_id))
 
@@ -105,8 +107,14 @@ async def test_each_rider_gets_a_separate_personal_chat_with_driver():
     rider_chat = rider_response.json()
     other_rider_chat = other_rider_response.json()
     assert rider_chat["id"] != other_rider_chat["id"]
-    assert rider_chat["participant_ids"] == [driver_id, rider_id]
-    assert other_rider_chat["participant_ids"] == [driver_id, other_rider_id]
+    assert rider_chat["participants"] == [
+        {"id": driver_id, "username": "driver"},
+        {"id": rider_id, "username": "rider"},
+    ]
+    assert other_rider_chat["participants"] == [
+        {"id": driver_id, "username": "driver"},
+        {"id": other_rider_id, "username": "other"},
+    ]
 
     rider_chats = client.get("/chats", headers=auth(rider_id)).json()
     other_rider_chats = client.get("/chats", headers=auth(other_rider_id)).json()
@@ -219,10 +227,10 @@ async def test_create_group_chat_for_driver_and_registered_rider():
     chat = response.json()
     assert chat["ride_id"] == ride_id
     assert chat["type"] == "group"
-    assert chat["participant_ids"] == [driver_id, *sorted([rider_id, other_rider_id])]
     usernames = {driver_id: "driver", rider_id: "rider", other_rider_id: "other"}
     assert chat["participants"] == [
-        {"id": member_id, "username": usernames[member_id]} for member_id in chat["participant_ids"]
+        {"id": member_id, "username": usernames[member_id]}
+        for member_id in [driver_id, *sorted([rider_id, other_rider_id])]
     ]
 
     reused = client.post(f"/rides/{ride_id}/chats/group", headers=auth(driver_id))
