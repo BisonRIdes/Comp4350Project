@@ -9,3 +9,6 @@ export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus]
 
 // How often logged-in pages check GET /updates for new requests and decisions.
 export const UPDATES_POLL_MS = 10_000
+
+// localStorage key (followed by ":<user id>") for the answers each user has already seen.
+export const SEEN_DECISIONS_KEY = 'seenDecisions'

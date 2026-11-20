@@ -263,6 +263,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RideRequest" }
+        "400":
+          description: The ride is full (every seat is taken by an accepted rider)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
           description: The logged-in user is this ride's driver
@@ -275,6 +280,51 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /rides/{ride_id}/detours:
+  get:
+    summary: Get all detours for a ride
+    description: >
+      Retrieves all detour points associated with a specific ride.
+      Access is restricted to the ride's driver and registered riders.
+      Detours are ordered by distance from the University of Manitoba,
+      from furthest to closest.
+    operationId: get_detours
+    tags: [Rides]
+    parameters:
+      - name: ride_id
+        in: path
+        required: true
+        description: The unique ID of the ride.
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Successfully retrieved the ride's detours.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RideDetours'
+      '403':
+        description: The authenticated user is neither the ride's driver nor a registered rider.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+                  example: not authorized to see detours for this ride
+      '404':
+        description: The requested ride does not exist.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+                  example: Ride not found
 
   /requests/mine:
     get:
@@ -828,16 +878,22 @@ components:
 
     Ride:
       type: object
-      required: [id, driver_id, origin_point, departure_time, seats, price_cents]
+      required:
+        [id, driver_id, driver_username, origin_point, departure_time, seats, price_cents, seats_left]
       properties:
         id: { type: string, format: uuid }
         driver_id: { type: string, format: uuid }
+        driver_username: { type: string, description: The student driving the ride }
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 0 }
         price_cents:
           type: [integer, "null"]
           description: What each rider pays for a seat, in cents (CAD). Null for rides posted before prices were saved.
+        seats_left:
+          type: integer
+          minimum: 0
+          description: Seats not yet taken by accepted riders, whether they've paid or not. 0 means the ride is full.
 
     CreateRideRequest:
       type: object
@@ -888,6 +944,32 @@ components:
             driver_username: { type: string, description: The student driving the ride }
             departure_time: { type: string, format: date-time, description: When the ride leaves }
             origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+
+    Detour:
+      type: object
+      description: Information about a single detour.
+      required: [owner_id, detour_point]
+      properties:
+        owner_id:
+          type: string
+          description: The unique ID of the user who created the detour.
+        detour_point:
+          $ref: '#/components/schemas/GeoJSONPoint'
+          description: The geographic coordinates of the detour.
+
+    RideDetours:
+      type: object
+      description: Information about detours associated with a ride.
+      required: [ride_id, detours]
+      properties:
+        ride_id:
+          type: string
+          description: The unique ID of the ride.
+        detours:
+          type: array
+          description: List of detour points associated with the ride, ordered from furthest to closest to the University of Manitoba.
+          items:
+            $ref: '#/components/schemas/Detour'      
 
     RideRegistration:
       type: object
