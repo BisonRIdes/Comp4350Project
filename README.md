@@ -39,3 +39,4 @@ The git standards can be found [here](documents/GIT_STANDARDS.md).
 ## Sprint Documentation
 - [Sprint 0](documents/sprint0.md)
 - [Sprint 1](documents/sprint1.md)
+- [Sprint 2](documents/sprint2.md)
