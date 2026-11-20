@@ -40,16 +40,16 @@ async def create_personal_chat(
     ride = await get_ride(db, ride_id)
     rider_id = body.rider_id
     registration = await db.get(RideRegistration, (ride.id, rider_id))
-    if registration is None and rider_id != ride.driver_id:
-        raise HTTPException(status_code=403, detail="Rider is not part of this ride")
-    if rider_id == user.id:
+    if rider_id == ride.driver_id:
         raise HTTPException(
             status_code=403, detail="Driver cannot create a personal chat with themself"
         )
+    if registration is None:
+        raise HTTPException(status_code=403, detail="Rider is not part of this ride")
     if user.id not in (ride.driver_id, rider_id):
         raise HTTPException(status_code=403, detail="You cannot access this personal chat")
     chat = await find_or_create(db, ride.id, "personal", rider_id, response)
-    member_ids = [user.id, rider_id]
+    member_ids = [ride.driver_id, rider_id]
     return chat_out(chat, member_ids, await participant_names(db, set(member_ids)))
 
 
