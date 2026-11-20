@@ -1,4 +1,6 @@
 import asyncio
+import random
+import string
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
@@ -20,6 +22,7 @@ from tests.helpers import (
     synchronize_session_commits,
 )
 from util.chat_utils import find_or_create
+from util.constants import MESSAGE_LENGTH
 
 
 async def test_create_personal_chat_and_reuse_existing_chat():
@@ -421,6 +424,23 @@ async def test_send_chat_message_rejects_empty_content():
 
     assert response.status_code == 422
 
+async def test_send_chat_message_rejects_excess_message_limit():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id)
+    await make_registration(ride_id, rider_id)
+    chat = client.post(f"/rides/{ride_id}/chats/group", headers=auth(driver_id)).json()
+
+    characters = string.ascii_letters + string.digits
+    large_message = ''.join(random.choices(characters, k=MESSAGE_LENGTH + 1))
+
+    response = client.post(
+        f"/chats/{chat['id']}/messages",
+        json={"content": large_message},
+        headers=auth(rider_id),
+    )
+
+    assert response.status_code == 422
 
 async def test_nonparticipant_cannot_send_or_list_chat_messages():
     driver_id = await make_user("driver", True)

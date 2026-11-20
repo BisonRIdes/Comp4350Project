@@ -17,6 +17,7 @@ from schemas import (
     CreatePersonalChatRequest,
     SendMessageRequest,
 )
+from util.constants import MESSAGE_LENGTH
 
 
 class PersonalChatBody(CreatePersonalChatRequest):
@@ -24,7 +25,7 @@ class PersonalChatBody(CreatePersonalChatRequest):
 
 
 class MessageBody(SendMessageRequest):
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MESSAGE_LENGTH)
 
 
 class ChatType(Chat):

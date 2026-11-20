@@ -6,11 +6,9 @@ from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, UniqueConstrai
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-from util.constants import USERNAME_LENGTH
+from util.constants import MESSAGE_LENGTH, USERNAME_LENGTH
 
 user_id: Final = "users.id"
-
-MESSAGE_LENGTH: Final = 512
 
 
 def new_id() -> str:
