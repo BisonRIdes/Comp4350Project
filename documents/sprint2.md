@@ -11,7 +11,7 @@
 | Regression testing notes | [`documents/tests.md`](tests.md) |
 | API spec | [`documents/openapi.yaml`](openapi.yaml) |
 | Live API docs | https://bisonrides-api.onrender.com/docs |
-| Live app | [bisonrides.vercel.app](https://bisonrides.vercel.app) |
+| Live app | [app.bisonrides.me](https://app.bisonrides.me) (also [bisonrides.vercel.app](https://bisonrides.vercel.app)) |
 | Architecture | [Architecture section below](#api-and-architecture) |
 | Backend setup | [`backend/README.md`](../backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
@@ -32,7 +32,7 @@ In Sprint 1 the full ride flow worked through the API, but most of it had no pag
 
 - **Payments (Stripe, test mode).** Once a request is accepted, the rider pays for the seat by card. The card goes straight to Stripe. The seat is only marked paid when Stripe's webhook confirms it, and a receipt is emailed through Resend. Cancelling a paid seat refunds it in full ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)). For details on how to use payment see our [Stripe Documentation](../backend/README.md#payments-stripe-test-mode). As it would be inappropriate to request the graders to insert real credit information to grade our project, we are using a Stripe exclusively in test mode, and not storing credit info for the driver receiving a payment. This is something that would need to be updated if we wanted to deploy this for profit.
 - **Map and address search.** Rides show on a  Leaflet map. The Map page lists upcoming rides next to a map. Address fields suggest real Manitoba addresses as you type (Photon), so a posted ride stores exact coordinates instead of a guess. Dashboard search can find rides that start within 5 km of a chosen address [issue #88](https://github.com/BisonRIdes/Comp4350Project/issues/88). Further addresses can be added by clicking on a map instead of typing in the address [#89](https://github.com/BisonRIdes/Comp4350Project/pull/89).
-- **Detours (backend).** The backend functionality for handlind detours has been added. The frontend implementation for detours is built but does not yet include selecting a location using the map, and visualizing the detour in the map.
+- **Detours (backend).** The backend functionality for handling detours has been added. The frontend implementation for detours is built but does not yet include selecting a location using the map, and visualizing the detour in the map.
 - **Chat** Riders and drivers on a ride can open a personal chat or a group chat for the ride and send and read messages. The API backend for chat messages can be found in [#92](https://github.com/BisonRIdes/Comp4350Project/pull/92). The frontend for chat message page can be found in [#103](https://github.com/BisonRIdes/Comp4350Project/pull/103).
 
 **Sprint 1 feedback.** Signup now has standard password rules, error messages stand out in colour, and the signup form has a clearer student email field ([#71](https://github.com/BisonRIdes/Comp4350Project/pull/71)).
@@ -96,7 +96,7 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 | Part | Where |
 | --- | --- |
-| App | [bisonrides.vercel.app](https://bisonrides.vercel.app) |
+| App | [app.bisonrides.me](https://app.bisonrides.me) (also [bisonrides.vercel.app](https://bisonrides.vercel.app)) |
 | API | https://bisonrides-api.onrender.com ([`/docs`](https://bisonrides-api.onrender.com/docs), other routes need the API key) |
 | Database | Supabase Postgres, through the session pooler |
 
@@ -126,7 +126,7 @@ Password: S3cret!P@ssword2
 
 ## Cross-Team Testing
 
-### Workflow: Accout Login/Creation
+### Workflow: Account Login/Creation
 Account Login and Creation worked fine. 
 It prevents you from creating an account with a non-umanitoba email and makes it clear that requires a student's email. It also had strong password security with clear feedback if your password didn't meet the security requirements. The email verification code also worked fine and arrived within a few seconds of creating an account.
 
@@ -236,7 +236,10 @@ I think the biggest technical risk we have is that we don't test the backend and
 The biggest improvement since Sprint 1 is the ride request workflow between riders and drivers. In Sprint 1 the backend supported requests, but the frontend had no screens for them and requests only carried IDs. Now a rider can request a seat, the driver is notified and accepts or declines, and the rider is notified and can pay, cancel or leave, all without reloading. The key decision was to let the backend own the facts: request details (names, ride time and place), seats left and the driver's name are computed in the backend, and full rides are rejected there, so every screen shows the same, correct data. On the frontend, a single shared poll feeds the notification badge, the Notifications page and My seats, and a layered structure.
 
 **Shreshth** (What technical decision or implementation improved most since Sprint 1, and why?)\
-The biggest improvement was to add auto complete for address and adding map to select a pickup/start location. In Sprint 1, Post Ride sent whatever text the driver typed to Nominatim and took the first Manitoba match. So "Regent" or a misspelled street could quietly save the wrong coordinates, and the driver never saw where it landed. In sprint 2, a user when starts entering an address a suggestion list is shown from where they can pick an address or select the location on map or if they allow location access we can check their live locaation. Adding maps also meant adding Leaflet, which is a large library, so we lazy-load it. The map code is a separate chunk that the browser only downloads the first time a map is shown, with a grey placeholder until it arrives. 
+The biggest improvement was to add auto complete for address and adding map to select a pickup/start location. In Sprint 1, Post Ride sent whatever text the driver typed to Nominatim and took the first Manitoba match. So "Regent" or a misspelled street could quietly save the wrong coordinates, and the driver never saw where it landed. In sprint 2, a user when starts entering an address a suggestion list is shown from where they can pick an address or select the location on map or if they allow location access we can check their live location. Adding maps also meant adding Leaflet, which is a large library, so we lazy-load it. The map code is a separate chunk that the browser only downloads the first time a map is shown, with a grey placeholder until it arrives. 
+
+**Raj** (What part of the current testing, CI, or CD process creates the most friction, and what might improve it?)\
+The most friction is between our deploys and the database. CI checks every change and only deploys the backend after `backend`, `security` and `docker` pass, but it can't change the database. When payments added `rides.price_cents` ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)), I had to run an `ALTER TABLE` on Supabase by hand before merging, because the app only creates missing tables, and deploying first would have broken every ride query on the live site. `detour_point` needed the same manual step. A smaller friction was keeping a long-running branch up to date: #75 had to merge `dev` three times as other PRs landed, and one of those merges silently dropped an import that only CI caught. To improve this, I'd add database migrations (Alembic) that run as a step in the deploy job, so schema changes ship with the code, and keep PRs smaller so they merge sooner.
 
 **Work we are proud of**
 

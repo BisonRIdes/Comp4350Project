@@ -7,7 +7,7 @@ All backend unit and integration tests (`backend/tests/`) are part of the regres
 The full suite is fast enough that running every test is the simplest and safest choice. If the suite grows past a few minutes, we will consider limiting regression runs to key tests.
 
 ### When does the suite run?
-On every pull request, including PRs into `dev` and `main`.
+On every pull request into `dev` or `main`, and on every push to `dev` or `main` (so it runs again on the merged result). The backend deploy depends on it: the `deploy-backend` job only runs after the suite passes, so a commit with a failing test never reaches Render.
 
 ### Which tools or frameworks execute it?
 - **GitHub Actions** runs the suite: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
