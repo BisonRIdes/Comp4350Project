@@ -15,7 +15,6 @@
 | Architecture | [Architecture section below](#api-and-architecture) |
 | Backend setup | [`backend/README.md`](../backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
-| Cross-team review we wrote | [`Cross-Team Testing #216`](https://github.com/popcorn9499/future-problems/issues/216) |
 
 ## Sprint Summary
 
@@ -253,7 +252,7 @@ The biggest improvement was to add auto complete for address and adding map to s
 - **No database migrations.** The app only creates missing tables. New columns (for example `detour_point` on ride requests) need a manual `ALTER TABLE` on Supabase. This gets riskier as the schema grows.
 - **Rides can only go to campus.** There is no destination field yet. The frontend assumes every ride ends at Fort Garry.
 - **Detour matching is basic.** Riders can request the driver take a detour, but this detour is not visualized on the map for the ride.
-- **Chats UI still looks clunky.** Chat workflow works, but there are still issues that hinder the user experience such as no ride name, chat behaviour not as expected on frontend side.
+- **Chats UI still looks clunky.** Chat workflow works, but there are still issues that hinder the user experience such as no ride name, chat behaviour is not as expected on frontend side.
 - **Deleting a ride with accepted riders** still returns `409`. The final rule (cancel and email riders, or a cancelled status) is still open.
 - **Render builds `dev` not `main`.** This has been convenient while developing, but warrants two separate environments to be more complete.
 - **Little logging.** Errors on the live API are hard to trace beyond Render's request log, and should receive more comprehensive logging.
