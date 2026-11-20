@@ -227,7 +227,7 @@ I am uncertain if we decided on the right platform to deploy our backend onto. T
 **Raj** (prompt: TODO)
 TODO
 
-**Cam** (prompt: What part of the current testing, CI, or CD process creates the most friction, and what might improve it?)\
+**Cam** (What part of the current testing, CI, or CD process creates the most friction, and what might improve it?)\
 When I was working with the messages UI, I noticed that on backend we have already had extensive testing for database queries and API calls, but currently we do not have any end-to-end or automated UI testing for our frontend. This ultimately hampered frontend testing as we had to rely on manual testing to verify the workflow and catch any bug or issues that hamper user experience. This is evident by the absurd number of commits I pushed in [#95](https://github.com/BisonRIdes/Comp4350Project/pull/95) to fix the UI bugs that we found out only after CI/CD process and automated testing had finished without stopping. One way we can improve it in our next iteration is by having end-to-end testing tools integrated for our frontend side like in backend (backend refuses deployment if even a single unit test fails).
 
 **Matt** (What is the most important technical risk or uncertainty going into the final iteration?)
