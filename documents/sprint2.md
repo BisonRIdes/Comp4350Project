@@ -224,6 +224,7 @@ TODO
 
 ## Known Issues and Risks for Final
 
+- **No rate limiting.** Render does not include rate limiting, and so bad actors could easily flood the backend with expensive requests.
 - **No frontend or end to end tests.** This is the biggest risk. Most new Sprint 2 work is in the frontend, and a change to an API contract can break a page without failing CI.
 - **No database migrations.** The app only creates missing tables. New columns (for example `detour_point` on ride requests) need a manual `ALTER TABLE` on Supabase. This gets riskier as the schema grows.
 - **Rides can only go to campus.** There is no destination field yet. The frontend assumes every ride ends at Fort Garry.
