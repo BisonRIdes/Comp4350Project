@@ -126,7 +126,30 @@ Password: S3cret!P@ssword2
 
 ## Cross-Team Testing
 
-**Our review of another team.** [issue #216](https://github.com/popcorn9499/future-problems/issues/216)
+### Workflow: Accout Login/Creation
+Account Login and Creation worked fine. 
+It prevents you from creating an account with a non-umanitoba email and makes it clear that requires a student's email. It also had strong password security with clear feedback if your password didn't meet the security requirements. The email verification code also worked fine and arrived within a few seconds of creating an account.
+
+### Workflow: Account Editing
+When trying to edit my account, I was successfully brought to the page to do so. The UI was easy to understand and it was obvious what each field meant. However, one little issue found was that it takes refreshing the app in order to see the changes made to your account. Additionally during testing, while it says that the changes made were saved, some of the options (age, description, profile colour) don't appear to save correctly.
+
+### Workflow: Creating Ride Request
+The inputs on this page all worked as expected and would provide error messages if the input was incorrect, or if a required input was missing. However, it seems like ride requests can be created for places anywhere in Canada, even places no one would realistically get a ride from (Ex: Vancouver).
+
+### Workflow: Creating Ride Offer
+The UI for this workflow is very similar to that of creating a ride request which is nice for learnability. The addition of a checkbox for carpooling seems like a weird addition since the point of offering a ride is to share it with others in the first place. The text for this checkbox is also a little confusing since it seems to imply that the user filling out this form is looking for a ride.
+
+### Additional Notes
+On the map, it shows ride requests/offers made by the user among those of other users, with no obvious indication it belongs to them. If the user presses the message button on their own ride, it just says that it could not open the chat.
+
+The frontend also shows a user an HTTP 401 error on the map if there session expires.
+
+Upon logging in, the UI was clean and uncluttered, making it easy to tell which elements were what. The dashboard and message tabs provide informative messages when there is no content present in them. When the dashboard contains ride offers/requests, the edit and cancel functionality for each one work as expected. But if the user creates many ride offers/requests, the dashboard gets a bit cluttered and it becomes harder to find a specific offer/request since they all look very similar at a glance.
+
+**Our suggestions to the other team.** 
+- [issue #229](https://github.com/popcorn9499/future-problems/issues/229)
+- [issue #230](https://github.com/popcorn9499/future-problems/issues/230)
+- [issue #232](https://github.com/popcorn9499/future-problems/issues/232)
 
 **Feedback on our project.** We received feedback from Team 5
 
