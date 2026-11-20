@@ -33,7 +33,7 @@ In Sprint 1 the full ride flow worked through the API, but most of it had no pag
 - **Payments (Stripe, test mode).** Once a request is accepted, the rider pays for the seat by card. The card goes straight to Stripe. The seat is only marked paid when Stripe's webhook confirms it, and a receipt is emailed through Resend. Cancelling a paid seat refunds it in full ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)). For details on how to use payment see our [Stripe Documentation](../backend/README.md#payments-stripe-test-mode). As it would be inappropriate to request the graders to insert real credit information to grade our project, we are using a Stripe exclusively in test mode, and not storing credit info for the driver receiving a payment. This is something that would need to be updated if we wanted to deploy this for profit.
 - **Map and address search.** Rides show on a  Leaflet map. The Map page lists upcoming rides next to a map. Address fields suggest real Manitoba addresses as you type (Photon), so a posted ride stores exact coordinates instead of a guess. Dashboard search can find rides that start within 5 km of a chosen address (issue #88). Further addresses can be added by clicking on a map instead of typing in the address [#89](https://github.com/BisonRIdes/Comp4350Project/pull/89).
 - **Detours (backend).** The backend functionality for handlind detours has been added. The frontend implementation for detours is built but does not yet include selecting a location using the map, and visualizing the detour in the map.
-- **Chats (backend).** Riders and drivers on a ride can open a personal chat or a group chat for the ride and send and read messages (issue #76). The frontend for chats is not built yet.
+- **Chat** Riders and drivers on a ride can open a personal chat or a group chat for the ride and send and read messages. The API backend for chat messages can be found in [#92](https://github.com/BisonRIdes/Comp4350Project/pull/92). The frontend for chat message page can be found in [#103](https://github.com/BisonRIdes/Comp4350Project/pull/103).
 
 **Sprint 1 feedback.** Signup now has standard password rules, error messages stand out in colour, and the signup form has a clearer student email field ([#71](https://github.com/BisonRIdes/Comp4350Project/pull/71)).
 
@@ -205,8 +205,8 @@ I am uncertain if we decided on the right platform to deploy our backend onto. T
 **Raj** (prompt: TODO)
 TODO
 
-**Cam** (prompt: TODO)
-TODO
+**Cam** (prompt: What part of the current testing, CI, or CD process creates the most friction, and what might improve it?)\
+When I was working with the messages UI, I noticed that on backend we have already had extensive testing for database queries and API calls, but currently we do not have any end-to-end or automated UI testing for our frontend. This ultimately hampered frontend testing as we had to rely on manual testing to verify the workflow and catch any bug or issues that hamper user experience. This is evident by the absurd number of commits I pushed in [#95](https://github.com/BisonRIdes/Comp4350Project/pull/95) to fix the UI bugs that we found out only after CI/CD process and automated testing had finished without stopping. One way we can improve it in our next iteration is by having end-to-end testing tools integrated for our frontend side like in backend (backend refuses deployment if even a single unit test fails).
 
 **Matt** (prompt: TODO)
 TODO
@@ -230,7 +230,7 @@ The biggest improvement was to add auto complete for address and adding map to s
 - **No database migrations.** The app only creates missing tables. New columns (for example `detour_point` on ride requests) need a manual `ALTER TABLE` on Supabase. This gets riskier as the schema grows.
 - **Rides can only go to campus.** There is no destination field yet. The frontend assumes every ride ends at Fort Garry.
 - **Detour matching is basic.** Riders can request the driver take a detour, but this detour is not visualized on the map for the ride.
-- **Chats have no UI.** The backend is done, but users can't chat yet.
+- **Chats UI still looks clunky.** Chat workflow works, but there are still issues that hinder the user experience such as no ride name, chat behaviour not as expected on frontend side.
 - **Deleting a ride with accepted riders** still returns `409`. The final rule (cancel and email riders, or a cancelled status) is still open.
 - **Render builds `dev` not `main`.** This has been convenient while developing, but warrants two separate environments to be more complete.
 - **Little logging.** Errors on the live API are hard to trace beyond Render's request log, and should receive more comprehensive logging.
