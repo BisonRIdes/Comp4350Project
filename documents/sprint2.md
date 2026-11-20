@@ -32,7 +32,7 @@ In Sprint 1 the full ride flow worked through the API, but most of it had no pag
 
 - **Payments (Stripe, test mode).** Once a request is accepted, the rider pays for the seat by card. The card goes straight to Stripe. The seat is only marked paid when Stripe's webhook confirms it, and a receipt is emailed through Resend. Cancelling a paid seat refunds it in full ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)). For details on how to use payment see our [Stripe Documentation](../backend/README.md#payments-stripe-test-mode). As it would be inappropriate to request the graders to insert real credit information to grade our project, we are using a Stripe exclusively in test mode. This is something that would need to be updated if we wanted to deploy this for profit.
 - **Map and address search.** Rides show on a  Leaflet map. The Map page lists upcoming rides next to a map. Address fields suggest real Manitoba addresses as you type (Photon), so a posted ride stores exact coordinates instead of a guess. Dashboard search can find rides that start within 5 km of a chosen address (issue #88). Further addresses can be added by clicking on a map instead of typing in the address [#89](https://github.com/BisonRIdes/Comp4350Project/pull/89).
-- **Detours (backend).** The backend functionality for handlind detours has been added. The frontend implementation for detours is not built yet.
+- **Detours (backend).** The backend functionality for handlind detours has been added. The frontend implementation for detours is built but does not yet include selecting a location using the map, and visualizing the detour in the map.
 - **Chats (backend).** Riders and drivers on a ride can open a personal chat or a group chat for the ride and send and read messages (issue #76). The frontend for chats is not built yet.
 
 **Sprint 1 feedback.** Signup now has standard password rules, error messages stand out in colour, and the signup form has a clearer student email field ([#71](https://github.com/BisonRIdes/Comp4350Project/pull/71)).
@@ -228,7 +228,7 @@ TODO
 - **No frontend or end to end tests.** This is the biggest risk. Most new Sprint 2 work is in the frontend, and a change to an API contract can break a page without failing CI.
 - **No database migrations.** The app only creates missing tables. New columns (for example `detour_point` on ride requests) need a manual `ALTER TABLE` on Supabase. This gets riskier as the schema grows.
 - **Rides can only go to campus.** There is no destination field yet. The frontend assumes every ride ends at Fort Garry.
-- **Detour matching is basic.** The backend is done, but users can't make use of detours yet.
+- **Detour matching is basic.** Riders can request the driver take a detour, but this detour is not visualized on the map for the ride.
 - **Chats have no UI.** The backend is done, but users can't chat yet.
 - **Deleting a ride with accepted riders** still returns `409`. The final rule (cancel and email riders, or a cancelled status) is still open.
 - **`main` is behind `dev`.** All work is merged into `dev` and render deploys from there. This has been convenient while developing, but warants two separate environments to be more complete.
