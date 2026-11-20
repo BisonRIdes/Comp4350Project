@@ -1,20 +1,15 @@
 import { Fragment, useEffect, useMemo } from 'react'
-import { divIcon, type LatLngTuple } from 'leaflet'
+import type { LatLngTuple } from 'leaflet'
 import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Ride } from './RideCard'
 import { dateFormat, timeFormat } from '../lib/format'
+import { dot, TILE_ATTRIBUTION, TILE_URL, toLatLng } from '../lib/mapUtils'
 import type { Place } from '../lib/places'
 import { DESTINATION, DESTINATION_POINT } from '../lib/rides'
 
-// The API uses GeoJSON [longitude, latitude]; Leaflet wants [latitude, longitude].
-const toLatLng = ([lng, lat]: readonly number[]): LatLngTuple => [lat, lng]
 const campus = toLatLng(DESTINATION_POINT)
 
-// Plain dots drawn with CSS. Leaflet's default pin images don't load after Vite bundles them.
-function dot(className: string, size = 16) {
-  return divIcon({ className: '', html: `<span class="block h-full w-full rounded-full ring-4 ${className}"></span>`, iconSize: [size, size] })
-}
 const originIcon = dot('bg-ink ring-white shadow-md')
 const highlightedIcon = dot('bg-ink ring-white shadow-lg', 24)
 const campusIcon = dot('bg-white ring-ink')
@@ -65,10 +60,7 @@ export function RideMap({ rides, onSelect, searchPlaces = [], searchRadiusKm, hi
   return (
     <MapContainer center={campus} zoom={13} scrollWheelZoom={false} className="isolate h-full w-full">
       <FitToPoints points={points} />
-      <TileLayer
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
+      <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
       {rides.map((ride) =>
         ride.origin ? (
           <Polyline

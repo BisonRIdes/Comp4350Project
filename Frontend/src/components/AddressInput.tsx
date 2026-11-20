@@ -1,5 +1,9 @@
 import { useEffect, useId, useState, type KeyboardEvent } from 'react'
+import { Icon } from './Icon'
+import { icons } from './icons'
+import { PickOnMapDialog } from './PickOnMapDialog'
 import { inputClass, inputErrorClass } from '../styles'
+import { findMyPlace } from '../lib/location'
 import { searchPlaces, type Place } from '../lib/places'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
@@ -9,18 +13,35 @@ type AddressInputProps = {
   placeholder?: string
   value: string
   onChange: (text: string) => void // the user typed; any place picked before no longer applies
-  onSelect: (place: Place) => void // the user picked a suggestion
+  onSelect: (place: Place) => void // the user picked a suggestion, a spot on the map, or their location
   error?: string
   // "field" looks like TextField (Post Ride); "search" is a segment of the dashboard search bar.
   variant?: 'field' | 'search'
+  // Where the "Pick on map" pin starts, GeoJSON [longitude, latitude], e.g. the place picked before.
+  selectedPoint?: readonly number[] | null
 }
 
 const minLength = 3
 const debounceMs = 300
 
+const actionLink =
+  'inline-flex items-center gap-1.5 text-[13px] font-medium text-subtle transition-colors duration-300 hover:text-ink disabled:opacity-60'
+const iconButton =
+  'flex h-8 w-8 items-center justify-center rounded-full text-subtle transition-colors duration-300 hover:bg-white hover:text-ink disabled:opacity-60'
+
 // Text input that suggests full addresses in Manitoba as you type (an ARIA combobox).
-// Up/Down to move, Enter to pick, Escape to close.
-export function AddressInput({ label, placeholder, value, onChange, onSelect, error, variant = 'field' }: AddressInputProps) {
+// Up/Down to move, Enter to pick, Escape to close. The address can also be picked on a map or
+// taken from the user's current location.
+export function AddressInput({
+  label,
+  placeholder,
+  value,
+  onChange,
+  onSelect,
+  error,
+  variant = 'field',
+  selectedPoint = null,
+}: AddressInputProps) {
   const id = useId()
   const listId = `${id}-list`
   const messageId = `${id}-message`
@@ -31,6 +52,9 @@ export function AddressInput({ label, placeholder, value, onChange, onSelect, er
   const [status, setStatus] = useState<Status>('idle')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
+  const [mapOpen, setMapOpen] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [notice, setNotice] = useState('') // why "Use my current location" didn't work
 
   useEffect(() => {
     if (query.text.trim().length < minLength) return
@@ -53,6 +77,7 @@ export function AddressInput({ label, placeholder, value, onChange, onSelect, er
   function handleChange(text: string) {
     onChange(text)
     setQuery({ text })
+    setNotice('')
     setActive(-1)
     const longEnough = text.trim().length >= minLength
     setOpen(longEnough)
@@ -64,6 +89,26 @@ export function AddressInput({ label, placeholder, value, onChange, onSelect, er
     onSelect(place)
     setOpen(false)
     setActive(-1)
+    setNotice('')
+  }
+
+  async function locate() {
+    setOpen(false)
+    setNotice('')
+    setLocating(true)
+    try {
+      pick(await findMyPlace())
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Couldn't find your location.")
+    } finally {
+      setLocating(false)
+    }
+  }
+
+  function openMap() {
+    setOpen(false)
+    setNotice('')
+    setMapOpen(true)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -117,13 +162,34 @@ export function AddressInput({ label, placeholder, value, onChange, onSelect, er
     />
   )
 
+  // On the search bar, where there's no room for text, locating and its problems show in the dropdown.
+  const showSearchNotice = isSearch && (locating || notice !== '')
+  const panelClass = `absolute inset-x-0 z-20 mt-2 overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.3)] ring-1 ring-black/10 ${isSearch ? 'md:min-w-88' : ''}`
+
   return (
     <div className="relative">
       {isSearch ? (
-        <label htmlFor={id} className="block cursor-text px-5 py-3 transition-colors duration-300 hover:bg-mist md:rounded-full">
-          <span className="block text-xs font-medium text-ink">{label}</span>
-          {input}
-        </label>
+        <>
+          <label htmlFor={id} className="block cursor-text py-3 pl-5 pr-20 transition-colors duration-300 hover:bg-mist md:rounded-full">
+            <span className="block text-xs font-medium text-ink">{label}</span>
+            {input}
+          </label>
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-0.5">
+            <button type="button" onClick={openMap} aria-label={`Pick ${label} on the map`} title="Pick on map" className={iconButton}>
+              <Icon className="h-4 w-4">{icons.pin}</Icon>
+            </button>
+            <button
+              type="button"
+              onClick={locate}
+              disabled={locating}
+              aria-label={`Use my current location for ${label}`}
+              title="Use my current location"
+              className={iconButton}
+            >
+              <Icon className={`h-4 w-4 ${locating ? 'animate-pulse' : ''}`}>{icons.locate}</Icon>
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <label htmlFor={id} className="mb-2 block text-sm font-medium text-ink">
@@ -133,10 +199,16 @@ export function AddressInput({ label, placeholder, value, onChange, onSelect, er
         </>
       )}
 
+      {showSearchNotice && !showList && (
+        <div role={notice ? 'alert' : 'status'} className={panelClass}>
+          <p className={`px-4 py-3 text-sm ${notice ? 'font-medium text-danger' : 'text-subtle'}`}>
+            {locating ? 'Finding your location…' : notice}
+          </p>
+        </div>
+      )}
+
       {showList && (
-        <div
-          className={`absolute inset-x-0 z-20 mt-2 overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.3)] ring-1 ring-black/10 ${isSearch ? 'md:min-w-88' : ''}`}
-        >
+        <div className={panelClass}>
           {status === 'loading' && <p className="px-4 py-3 text-sm text-subtle">Searching…</p>}
           {status === 'error' && <p className="px-4 py-3 text-sm text-subtle">Couldn't load suggestions. Check your connection.</p>}
           {status === 'done' && results.length === 0 && <p className="px-4 py-3 text-sm text-subtle">No matches in Manitoba.</p>}
@@ -171,6 +243,30 @@ export function AddressInput({ label, placeholder, value, onChange, onSelect, er
         <p id={messageId} className="mt-2 text-[13px] font-medium text-ink">
           {error}
         </p>
+      )}
+
+      {!isSearch && (
+        <>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+            <button type="button" onClick={openMap} className={actionLink}>
+              <Icon className="h-4 w-4">{icons.pin}</Icon>
+              Pick on map
+            </button>
+            <button type="button" onClick={locate} disabled={locating} className={actionLink}>
+              <Icon className={`h-4 w-4 ${locating ? 'animate-pulse' : ''}`}>{icons.locate}</Icon>
+              {locating ? 'Finding your location…' : 'Use my current location'}
+            </button>
+          </div>
+          {notice && (
+            <p role="alert" className="mt-2 text-[13px] font-medium text-danger">
+              {notice}
+            </p>
+          )}
+        </>
+      )}
+
+      {mapOpen && (
+        <PickOnMapDialog title={label} start={selectedPoint} onPick={pick} onClose={() => setMapOpen(false)} />
       )}
     </div>
   )

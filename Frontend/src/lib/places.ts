@@ -61,6 +61,45 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   return places
 }
 
+const [WEST, SOUTH, EAST, NORTH] = MANITOBA_BOX.split(',').map(Number)
+
+// Whether a GeoJSON [longitude, latitude] point is inside the rough Manitoba rectangle.
+export const inManitoba = ([lng, lat]: readonly number[]) => lng >= WEST && lng <= EAST && lat >= SOUTH && lat <= NORTH
+
+const reverseCache = new Map<string, Place | null>()
+
+// The address at a point picked on the map or from the browser's location, or null when the point
+// is outside Manitoba. Photon answers with the nearest building or street, which can be a little
+// off from the spot itself, so only its address is used and the place keeps the exact point.
+export async function reversePlace(point: readonly number[]): Promise<Place | null> {
+  if (!inManitoba(point)) return null
+  const [lng, lat] = point
+  // About a metre apart counts as the same spot.
+  const key = `${lng.toFixed(5)},${lat.toFixed(5)}`
+  const cached = reverseCache.get(key)
+  if (cached !== undefined) return cached
+
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lng), lang: 'en', limit: '1' })
+  const response = await fetch(`https://photon.komoot.io/reverse?${params}`)
+  if (!response.ok) throw new Error(`Status ${response.status}`)
+  const { features }: { features: Feature[] } = await response.json()
+
+  const coordinates: [number, number] = [lng, lat]
+  const feature = features[0]
+  let place: Place | null
+  if (!feature) {
+    // Nothing named nearby (e.g. a field outside town), so describe the spot by its coordinates.
+    const detail = `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    place = { name: 'Dropped pin', detail, label: `Dropped pin, ${detail}`, coordinates }
+  } else if (feature.properties.state !== 'Manitoba') {
+    place = null // inside the rectangle but across the border
+  } else {
+    place = { ...toPlace(feature), coordinates }
+  }
+  reverseCache.set(key, place)
+  return place
+}
+
 // Straight-line distance in km between two GeoJSON [longitude, latitude] points.
 export function distanceKm([lng1, lat1]: readonly number[], [lng2, lat2]: readonly number[]) {
   const rad = Math.PI / 180

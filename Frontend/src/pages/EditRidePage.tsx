@@ -187,6 +187,8 @@ export default function EditRidePage() {
                 label="Leaving from"
                 placeholder="Start typing an address, town or landmark"
                 value={from}
+                // The new start if one was picked, otherwise where the ride starts now.
+                selectedPoint={place?.coordinates ?? original.origin_point?.coordinates}
                 onChange={(text) => {
                   setFrom(text)
                   setPlace(null)

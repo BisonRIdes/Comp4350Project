@@ -111,6 +111,7 @@ export default function PostRidePage() {
                 label="Leaving from"
                 placeholder="Start typing an address, town or landmark"
                 value={from}
+                selectedPoint={place?.coordinates}
                 onChange={(text) => {
                   setFrom(text)
                   setPlace(null)

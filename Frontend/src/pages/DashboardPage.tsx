@@ -158,6 +158,7 @@ export default function DashboardPage() {
             label="From"
             placeholder="Starting point"
             value={form.from}
+            selectedPoint={form.fromPlace?.coordinates}
             // Typing after picking means it's plain text again (matched by name).
             onChange={(text) => setForm({ ...form, from: text, fromPlace: null })}
             onSelect={(place) => setForm({ ...form, from: place.label, fromPlace: place })}
@@ -168,6 +169,7 @@ export default function DashboardPage() {
               label="To"
               placeholder="Destination"
               value={form.to}
+              selectedPoint={form.toPlace?.coordinates}
               onChange={(text) => setForm({ ...form, to: text, toPlace: null })}
               onSelect={(place) => setForm({ ...form, to: place.label, toPlace: place })}
             />
