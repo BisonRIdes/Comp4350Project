@@ -15,11 +15,12 @@ import { useSeatPayments } from '../hooks/useSeatPayments'
 import { useSearchParams } from 'react-router'
 import { getUser } from '../lib/auth'
 import { distanceKm, type Place } from '../lib/places'
+import { DESTINATION } from '../lib/rides'
 
 // fromPlace / toPlace are set when that field was picked from the suggestions; then rides are
 // matched by distance instead of by name.
 type Search = { from: string; to: string; departure: string; fromPlace: Place | null; toPlace: Place | null }
-const emptySearch: Search = { from: '', to: '', departure: '', fromPlace: null, toPlace: null }
+const emptySearch: Search = { from: '', to: DESTINATION, departure: '', fromPlace: null, toPlace: null }
 
 // How far from a picked address a ride can start (or end) and still show up.
 const NEARBY_KM = 5
@@ -129,7 +130,7 @@ export default function DashboardPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isEmpty = !form.from.trim() && !form.to.trim() && !form.departure
+    const isEmpty = !form.from.trim() && !form.departure
     setActiveSearch(isEmpty ? null : form)
   }
 
@@ -164,15 +165,7 @@ export default function DashboardPage() {
             onSelect={(place) => setForm({ ...form, from: place.label, fromPlace: place })}
           />
           <div className="border-t border-black/10 md:border-l md:border-t-0">
-            <AddressInput
-              variant="search"
-              label="To"
-              placeholder="Destination"
-              value={form.to}
-              selectedPoint={form.toPlace?.coordinates}
-              onChange={(text) => setForm({ ...form, to: text, toPlace: null })}
-              onSelect={(place) => setForm({ ...form, to: place.label, toPlace: place })}
-            />
+            <SearchField label="To" value={form.to} readOnly />
           </div>
           <div className="border-t border-black/10 md:border-l md:border-t-0">
             <SearchField
