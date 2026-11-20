@@ -1,3 +1,4 @@
+import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
 
@@ -14,6 +15,8 @@ from tests.helpers import (
     make_user,
 )
 from util import stripe_api
+
+pytestmark = pytest.mark.regression
 
 
 def request_ride(ride_id: str, rider_id: str) -> str:
