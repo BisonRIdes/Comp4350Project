@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { RequestStatus } from '../constants'
 import { ApiError } from '../lib/api'
-import { geocode } from '../lib/geocode'
+import { searchPlaces } from '../lib/places'
 import { fetchMyRequests, requestRide } from '../lib/rideRequests'
 
 // What to tell the rider when asking for a seat fails, by HTTP status.
@@ -44,12 +44,12 @@ export function useMyRequestForRide(rideId: string) {
     setSending(true)
     setError('')
     try {
-      const coordinates = await geocode(pickup.trim())
-      if (!coordinates) {
+      const [place] = await searchPlaces(pickup.trim())
+      if (!place) {
         setError('We couldn\'t find that place in Manitoba. Try adding the town, e.g. "Main St, Steinbach".')
         return
       }
-      await requestRide(rideId, { type: 'Point', coordinates })
+      await requestRide(rideId, { type: 'Point', coordinates: place.coordinates })
       setFound({ rideId, status: RequestStatus.Pending })
     } catch (caught) {
       setError(caught instanceof ApiError ? (requestErrors[caught.status] ?? fallbackError) : fallbackError)
