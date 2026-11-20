@@ -1,11 +1,19 @@
 """Request and response models shared by the API routers."""
 
+import re
 from datetime import datetime
 from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from util.constants import STUDENT_EMAIL_DOMAIN, USERNAME_LENGTH
+from util.constants import (
+    MESSAGE_LENGTH,
+    MIN_PRICE_CENTS,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    STUDENT_EMAIL_DOMAIN,
+    USERNAME_LENGTH,
+)
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
@@ -42,9 +50,13 @@ class RideOut(BaseModel):
 
     id: str
     driver_id: str
+    driver_username: str
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int
+    price_cents: int | None
+    # seats not yet taken by accepted riders, whether they've paid or not
+    seats_left: int
 
 
 class CreateRideBody(BaseModel):
@@ -53,6 +65,8 @@ class CreateRideBody(BaseModel):
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int = Field(default=1, ge=1)
+    # price per seat in cents, e.g. 500 for $5.00
+    price_cents: int | None = Field(default=None, ge=MIN_PRICE_CENTS)
 
 
 class UpdateRideBody(BaseModel):
@@ -61,6 +75,7 @@ class UpdateRideBody(BaseModel):
     origin_point: GeoJSONPoint | None = None
     departure_time: datetime | None = None
     seats: int | None = Field(default=None, ge=0)
+    price_cents: int | None = Field(default=None, ge=MIN_PRICE_CENTS)
 
 
 class RideRequestOut(BaseModel):
@@ -72,6 +87,13 @@ class RideRequestOut(BaseModel):
     ride_id: str
     rider_id: str
     status: Literal["pending", "accepted", "declined"]
+    detour_point: GeoJSONPoint | None = None
+
+
+class CreateRideRequestBody(BaseModel):
+    """Request body for creating a ride request"""
+
+    detour_point: GeoJSONPoint
 
 
 class RideRegistrationOut(BaseModel):
@@ -83,11 +105,49 @@ class RideRegistrationOut(BaseModel):
     rider_id: str
 
 
+class Detour(BaseModel):
+    """information about a single detour"""
+
+    owner_id: str
+    detour_point: GeoJSONPoint
+
+
+class RideDetoursOut(BaseModel):
+    """information about detours associated with a ride"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ride_id: str
+    detours: list[Detour]
+
+
+class RideRequestDetailsOut(RideRequestOut):
+    """A ride request with who asked, who drives, and when and where the ride leaves."""
+
+    rider_username: str
+    driver_username: str
+    departure_time: datetime
+    origin_point: GeoJSONPoint
+
+
 class UpdatesOut(BaseModel):
     """Everything the page needs to refresh for one user."""
 
-    pending_requests: list[RideRequestOut]
-    request_updates: list[RideRequestOut]
+    pending_requests: list[RideRequestDetailsOut]
+    request_updates: list[RideRequestDetailsOut]
+
+
+class PaymentOut(BaseModel):
+    """A rider's payment for their seat."""
+
+    request_id: str
+    ride_id: str
+    # None when the ride has no price, so there's nothing to pay
+    amount_cents: int | None
+    # "processing": paid in the browser, waiting for Stripe's webhook to confirm it
+    status: Literal["unpaid", "processing", "paid"]
+    # only while unpaid: lets Stripe's payment form in the browser take the card for this payment
+    client_secret: str | None = None
 
 
 class CreateUserRequest(BaseModel):
@@ -100,7 +160,7 @@ class CreateUserRequest(BaseModel):
     username: str = Field(min_length=3, max_length=USERNAME_LENGTH)
     # basic format check; avoids needing the email-validator dependency
     email: str = Field(max_length=255, pattern=EMAIL_REGEX)
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
     is_driver: bool = False
 
     @field_validator("email")
@@ -112,6 +172,21 @@ class CreateUserRequest(BaseModel):
         if email.rsplit("@", 1)[1] != STUDENT_EMAIL_DOMAIN:
             raise ValueError(f"Use your @{STUDENT_EMAIL_DOMAIN} student email")
         return email
+
+    @field_validator("password")
+    @classmethod
+    def must_be_strong_password(cls, password: str) -> str:
+        # Each rule is (pattern the password must contain, what to call it in the error).
+        rules = [
+            (r"[A-Z]", "an uppercase letter"),
+            (r"[a-z]", "a lowercase letter"),
+            (r"[0-9]", "a number"),
+            (r"[^A-Za-z0-9]", "a symbol"),
+        ]
+        missing = [name for pattern, name in rules if not re.search(pattern, password)]
+        if missing:
+            raise ValueError(f"Password needs {', '.join(missing)}")
+        return password
 
 
 class VerifyEmailBody(BaseModel):
@@ -151,3 +226,39 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
     user: UserResponse
+
+
+class CreatePersonalChatRequest(BaseModel):
+    rider_id: str | None = None
+
+
+class ChatParticipant(BaseModel):
+    id: str
+    username: str
+
+
+class Chat(BaseModel):
+    id: str
+    ride_id: str
+    type: str
+    participant_ids: list[str]
+    participants: list[ChatParticipant]
+
+
+class SendMessageRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=MESSAGE_LENGTH)
+
+
+class ChatMessage(BaseModel):
+    id: str
+    chat_id: str
+    sender_id: str
+    content: str
+    created_at: str
+
+
+class MessagePage(BaseModel):
+    """A page of messages and an optional cursor for older messages."""
+
+    messages: list[ChatMessage]
+    next_cursor: str | None

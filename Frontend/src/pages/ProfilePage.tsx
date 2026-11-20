@@ -26,7 +26,7 @@ export default function ProfilePage() {
         <h1 className={`text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.05] ${headingClass}`}>
           Your <em className="text-subtle">profile.</em>
         </h1>
-        <p className="mt-3 text-lg text-subtle">Editing your details is coming in Sprint 2.</p>
+        <p className="mt-3 text-lg text-subtle">Editing your details is coming in Sprint 3.</p>
 
         <dl className="mt-10 divide-y divide-black/5 rounded-3xl bg-mist px-6">
           {details.map((detail) => (

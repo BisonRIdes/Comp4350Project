@@ -19,4 +19,8 @@ const inputBase =
   'w-full rounded-xl bg-mist px-4 py-3.5 text-[15px] text-ink ring-1 transition duration-300 ease-smooth placeholder:text-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-ink'
 
 export const inputClass = `${inputBase} ring-transparent hover:ring-black/10`
-export const inputErrorClass = `${inputBase} ring-black/40`
+export const inputErrorClass = `${inputBase} ring-danger`
+
+// Box for a form-level error, like a wrong password or a server error.
+export const errorNotice =
+  'rounded-xl bg-danger/5 px-4 py-3 text-center text-sm font-medium text-danger ring-1 ring-danger/20'

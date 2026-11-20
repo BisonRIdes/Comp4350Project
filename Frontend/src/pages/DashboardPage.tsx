@@ -1,19 +1,58 @@
 import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { RideCard, type Ride } from '../components/RideCard'
+import { LazyRideMap } from '../components/LazyRideMap'
+import { SeatActions } from '../components/SeatActions'
+import { RequestStatus } from '../constants'
 import { headingClass } from '../styles'
+import { useMyRequests } from '../hooks/useMyRequests'
+import { useOpenRide } from '../hooks/useOpenRide'
 import { useRides } from '../hooks/useRides'
+import { useSeatPayments } from '../hooks/useSeatPayments'
+import { useSearchParams } from 'react-router'
+import { getUser } from '../lib/auth'
+import { distanceKm, type Place } from '../lib/places'
+import { DESTINATION } from '../lib/rides'
 
-type Search = { from: string; to: string; departure: string }
-const emptySearch: Search = { from: '', to: '', departure: '' }
+// fromPlace / toPlace are set when that field was picked from the suggestions; then rides are
+// matched by distance instead of by name.
+type Search = { from: string; to: string; departure: string; fromPlace: Place | null; toPlace: Place | null }
+const emptySearch: Search = { from: '', to: DESTINATION, departure: '', fromPlace: null, toPlace: null }
+
+// How far from a picked address a ride can start (or end) and still show up.
+const NEARBY_KM = 5
+
+// What "Filter by" shows. Kept in the URL (?view=seats) so a refresh or a link opens the same list.
+type View = 'all' | 'seats' | 'rides'
+const viewTitles: Record<View, string> = { all: 'Available rides', seats: 'My seats', rides: 'My rides' }
+const emptyMessages: Record<View, string> = {
+  all: 'Sorry, there are no rides available.',
+  seats: "You don't have any upcoming seats.",
+  rides: "You haven't posted any upcoming rides.",
+}
+
+// Only drivers have rides of their own, so anything unknown falls back to every ride.
+function toView(requested: string | null, isDriver: boolean): View {
+  if (requested === 'seats') return 'seats'
+  if (requested === 'rides' && isDriver) return 'rides'
+  return 'all'
+}
 
 function matchesSearch(ride: Ride, search: Search) {
   const contains = (value: string | undefined, query: string) =>
     (value ?? '').toLowerCase().includes(query.trim().toLowerCase())
-  if (search.from && !contains(ride.from, search.from)) return false
-  if (search.to && !contains(ride.to, search.to)) return false
+  const near = (point: readonly number[] | undefined, place: Place) =>
+    point !== undefined && distanceKm(point, place.coordinates) <= NEARBY_KM
+
+  if (search.fromPlace) {
+    if (!near(ride.origin, search.fromPlace)) return false
+  } else if (search.from && !contains(ride.from, search.from)) return false
+  if (search.toPlace) {
+    if (!near(ride.destination, search.toPlace)) return false
+  } else if (search.to && !contains(ride.to, search.to)) return false
   if (search.departure) {
     const wanted = new Date(search.departure)
     const leaves = new Date(ride.departure)
@@ -22,8 +61,18 @@ function matchesSearch(ride: Ride, search: Search) {
   return true
 }
 
+// Matching rides; nearest first when searching from a picked address.
+function findRides(rides: Ride[], search: Search) {
+  const found = rides.filter((ride) => matchesSearch(ride, search))
+  const place = search.fromPlace
+  if (!place) return found
+  return found.sort((a, b) => distanceKm(a.origin!, place.coordinates) - distanceKm(b.origin!, place.coordinates))
+}
+
 function describeSearch(search: Search) {
-  const route = [search.from || 'Anywhere', search.to || 'Anywhere'].join(' → ')
+  const from = search.fromPlace ? `Near ${search.fromPlace.name}` : search.from
+  const to = search.toPlace ? `near ${search.toPlace.name}` : search.to
+  const route = [from || 'Anywhere', to || 'Anywhere'].join(' → ')
   if (!search.departure) return route
   const time = new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   return `${route} · ${time.format(new Date(search.departure))}`
@@ -32,10 +81,12 @@ function describeSearch(search: Search) {
 // One segment of the search bar: small label above a borderless input.
 function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="block cursor-text px-5 py-3 transition-colors duration-300 hover:bg-mist md:rounded-full">
+    <label
+      className={`block ${inputProps.readOnly ? 'cursor-default' : 'cursor-text'} px-5 py-3 transition-colors duration-300 hover:bg-mist md:rounded-full`}
+    >
       <span className="block text-xs font-medium text-ink">{label}</span>
       <input
-        className="mt-0.5 w-full bg-transparent text-[15px] text-ink placeholder:text-neutral-400 focus:outline-none"
+        className={`mt-0.5 w-full bg-transparent text-[15px] text-ink placeholder:text-neutral-400 focus:outline-none ${inputProps.readOnly ? 'cursor-default' : ''}`}
         {...inputProps}
       />
     </label>
@@ -43,15 +94,45 @@ function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttr
 }
 
 export default function DashboardPage() {
-  const { rides: allRides, loading, error: loadError } = useRides()
+  const { rides: allRides, loading: ridesLoading, error: ridesError, reload: reloadRides } = useRides()
+  const { openRide, isOwn } = useOpenRide()
+  const user = getUser()
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
+  const [params, setParams] = useSearchParams()
+  const { active: seats, loading: seatsLoading, error: seatsError, cancel } = useMyRequests()
+  const payments = useSeatPayments(
+    seats.filter((seat) => seat.status === RequestStatus.Accepted).map((seat) => seat.id),
+  )
 
-  const rides = activeSearch ? allRides.filter((ride) => matchesSearch(ride, activeSearch)) : allRides
+  // Every view is the same list of rides, so search and the cards work the same way in all three.
+  const view = toView(params.get('view'), user?.is_driver ?? false)
+  const seatOnRide = new Map(seats.map((seat) => [seat.ride_id, seat]))
+  const listed =
+    view === 'seats'
+      ? allRides.filter((ride) => seatOnRide.has(ride.id))
+      : view === 'rides'
+        ? allRides.filter(isOwn)
+        : allRides
+  const rides = activeSearch ? findRides(listed, activeSearch) : listed
+  const loading = ridesLoading || (view === 'seats' && seatsLoading)
+  const loadError = ridesError || (view === 'seats' ? seatsError : '')
+  const unpaid = payments.filter((payment) => payment.status !== 'paid' && payment.amount_cents !== null).length
+
+  // A seat just came free, so show the new seats left now instead of after the next reload.
+  async function cancelSeat(requestId: string) {
+    const message = await cancel(requestId)
+    reloadRides()
+    return message
+  }
+
+  function changeView(next: View) {
+    setParams(next === 'all' ? {} : { view: next })
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isEmpty = !form.from.trim() && !form.to.trim() && !form.departure
+    const isEmpty = !form.from.trim() && !form.departure
     setActiveSearch(isEmpty ? null : form)
   }
 
@@ -72,25 +153,25 @@ export default function DashboardPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="mt-8 grid overflow-hidden rounded-3xl bg-white ring-1 ring-black/10 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.25)] md:grid-cols-[1fr_1fr_1fr_auto] md:items-center md:rounded-full md:p-1.5"
+          // No overflow-hidden: the address suggestions drop down past the bar.
+          className="relative z-10 mt-8 grid rounded-3xl bg-white ring-1 ring-black/10 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.25)] md:grid-cols-[1fr_1fr_1fr_auto] md:items-center md:rounded-full md:p-1.5"
         >
-          <SearchField
+          <AddressInput
+            variant="search"
             label="From"
             placeholder="Starting point"
             value={form.from}
-            onChange={(event) => setForm({ ...form, from: event.target.value })}
+            selectedPoint={form.fromPlace?.coordinates}
+            // Typing after picking means it's plain text again (matched by name).
+            onChange={(text) => setForm({ ...form, from: text, fromPlace: null })}
+            onSelect={(place) => setForm({ ...form, from: place.label, fromPlace: place })}
           />
           <div className="border-t border-black/10 md:border-l md:border-t-0">
-            <SearchField
-              label="To"
-              placeholder="Destination"
-              value={form.to}
-              onChange={(event) => setForm({ ...form, to: event.target.value })}
-            />
+            <SearchField label="To" value={form.to} readOnly />
           </div>
           <div className="border-t border-black/10 md:border-l md:border-t-0">
             <SearchField
-              label="Departure (optional)"
+              label="Departure"
               type="datetime-local"
               value={form.departure}
               onChange={(event) => setForm({ ...form, departure: event.target.value })}
@@ -107,23 +188,73 @@ export default function DashboardPage() {
           </div>
         </form>
 
-        <section className="mt-14">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight">Available rides</h2>
-            {activeSearch && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-mist py-1 pl-4 pr-1 text-sm text-ink">
-                {describeSearch(activeSearch)}
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  aria-label="Clear search"
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-subtle transition-colors duration-300 hover:bg-white hover:text-ink"
-                >
-                  <Icon className="h-4 w-4">{icons.close}</Icon>
-                </button>
-              </span>
-            )}
+        {/* After a search, show where the matching rides start. Clicking a dot opens that ride. */}
+        {activeSearch && !loading && !loadError && rides.length > 0 && (
+          <div className="mt-8 h-72 overflow-hidden rounded-3xl bg-mist ring-1 ring-black/10 sm:h-96">
+            <LazyRideMap
+              rides={rides}
+              onSelect={openRide}
+              searchPlaces={[activeSearch.fromPlace, activeSearch.toPlace].filter((place) => place !== null)}
+              searchRadiusKm={NEARBY_KM}
+            />
           </div>
+        )}
+
+        <section className="mt-14">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-2xl font-semibold tracking-tight">{viewTitles[view]}</h2>
+              {activeSearch && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-mist py-1 pl-4 pr-1 text-sm text-ink">
+                  {describeSearch(activeSearch)}
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-subtle transition-colors duration-300 hover:bg-white hover:text-ink"
+                  >
+                    <Icon className="h-4 w-4">{icons.close}</Icon>
+                  </button>
+                </span>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-sm text-subtle">
+              Filter by:
+              {/* The browser's own arrow sits right on the edge, so it's hidden and our chevron is drawn instead. */}
+              <span className="relative">
+                <select
+                  value={view}
+                  onChange={(event) => changeView(event.target.value as View)}
+                  className="appearance-none rounded-full bg-mist py-2 pl-4 pr-10 text-sm font-medium text-ink ring-1 ring-transparent transition duration-300 hover:ring-black/10 focus:outline-none focus:ring-2 focus:ring-ink"
+                >
+                  <option value="all">All available rides</option>
+                  <option value="seats">My seats</option>
+                  {user?.is_driver && <option value="rides">My rides</option>}
+                </select>
+                <Icon className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-subtle">
+                  {icons.chevron}
+                </Icon>
+              </span>
+            </label>
+          </div>
+
+          {/* Riders with a seat see it straight away, without the list changing under them. */}
+          {view === 'all' && seats.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-mist px-5 py-4 text-sm">
+              <p className="text-ink">
+                You have {seats.length} upcoming {seats.length === 1 ? 'seat' : 'seats'}
+                {unpaid > 0 && <span className="text-subtle"> · {unpaid} waiting for payment</span>}
+              </p>
+              <button
+                type="button"
+                onClick={() => changeView('seats')}
+                className="inline-flex items-center gap-1 font-medium text-ink underline-offset-4 hover:underline"
+              >
+                View my seats
+                <Icon className="h-4 w-4">{icons.arrow}</Icon>
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <ul className="mt-6 space-y-3" aria-label="Loading rides">
@@ -132,20 +263,37 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : loadError ? (
-            <p role="alert" className="mt-6 rounded-3xl bg-mist px-6 py-10 text-center text-subtle">
+            <p role="alert" className="mt-6 rounded-3xl bg-danger/5 px-6 py-10 text-center font-medium text-danger ring-1 ring-danger/20">
               {loadError}
             </p>
           ) : rides.length > 0 ? (
             <ul className="mt-6 space-y-3">
-              {rides.map((ride) => (
-                <li key={ride.id}>
-                  <RideCard ride={ride} />
-                </li>
-              ))}
+              {rides.map((ride) => {
+                const seat = view === 'seats' ? seatOnRide.get(ride.id) : undefined
+                return (
+                  <li key={ride.id}>
+                    <RideCard
+                      ride={ride}
+                      isOwn={isOwn(ride)}
+                      // Drivers edit their own rides; everyone else opens the ride to request a seat.
+                      onClick={() => openRide(ride)}
+                      footer={
+                        seat && (
+                          <SeatActions
+                            status={seat.status}
+                            payment={payments.find((payment) => payment.request_id === seat.id)}
+                            onCancel={() => cancelSeat(seat.id)}
+                          />
+                        )
+                      }
+                    />
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <div role="status" className="mt-6 rounded-3xl bg-mist px-6 py-16 text-center">
-              <p className="text-lg font-medium">Sorry, there are no rides available.</p>
+              <p className="text-lg font-medium">{emptyMessages[view]}</p>
               {activeSearch && (
                 <>
                   <p className="mt-2 text-subtle">Try a different route or time, or clear your search to see every ride.</p>

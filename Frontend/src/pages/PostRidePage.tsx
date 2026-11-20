@@ -1,59 +1,18 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { TextField } from '../components/TextField'
-import { headingClass, primaryButton } from '../styles'
+import { errorNotice, headingClass, primaryButton } from '../styles'
 import { apiFetch, readError } from '../lib/api'
 import { getUser } from '../lib/auth'
-import { geocode } from '../lib/geocode'
-import { DESTINATION } from '../lib/rides'
-
-const minSeats = 1
-const maxSeats = 8 // big enough for a minivan; raise it if needed
+import type { Place } from '../lib/places'
+import { DESTINATION, toLocalInputValue } from '../lib/rides'
+import { SeatStepper } from '../components/SeatStepper'
 
 type Errors = { from?: string; departure?: string; price?: string }
-
-// <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm" in local time.
-function toLocalInputValue(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
-
-// − 3 + counter. The number can also be typed.
-function SeatStepper({ value, onChange }: { value: number; onChange: (seats: number) => void }) {
-  const clamp = (seats: number) => Math.min(maxSeats, Math.max(minSeats, seats))
-  const stepButton =
-    'flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl text-ink ring-1 ring-black/10 transition duration-300 ease-smooth hover:ring-black/30 active:scale-[0.95] disabled:opacity-40 disabled:hover:ring-black/10'
-
-  return (
-    <div className="flex items-center justify-between rounded-2xl bg-mist p-2">
-      <button type="button" onClick={() => onChange(clamp(value - 1))} disabled={value <= minSeats} aria-label="Remove a seat" className={stepButton}>
-        −
-      </button>
-      <div className="text-center">
-        <input
-          type="number"
-          inputMode="numeric"
-          min={minSeats}
-          max={maxSeats}
-          value={value}
-          onChange={(event) => {
-            const typed = parseInt(event.target.value, 10)
-            if (!Number.isNaN(typed)) onChange(clamp(typed))
-          }}
-          aria-label="Seats available"
-          className="w-16 bg-transparent text-center text-2xl font-semibold tabular-nums text-ink focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        />
-        <p className="text-xs text-subtle">{value === 1 ? 'seat' : 'seats'} for riders</p>
-      </div>
-      <button type="button" onClick={() => onChange(clamp(value + 1))} disabled={value >= maxSeats} aria-label="Add a seat" className={stepButton}>
-        +
-      </button>
-    </div>
-  )
-}
 
 export default function PostRidePage() {
   const navigate = useNavigate()
@@ -62,6 +21,8 @@ export default function PostRidePage() {
   // The datetime picker's earliest choice: now, when the page opened.
   const [earliestDeparture] = useState(() => toLocalInputValue(new Date()))
   const [from, setFrom] = useState('')
+  // The suggestion the driver picked; cleared as soon as they edit the text again.
+  const [place, setPlace] = useState<Place | null>(null)
   const [departure, setDeparture] = useState('')
   const [seats, setSeats] = useState(3)
   const [price, setPrice] = useState('')
@@ -75,39 +36,35 @@ export default function PostRidePage() {
     event.preventDefault()
     const nextErrors: Errors = {}
     if (!from.trim()) nextErrors.from = 'Enter where you are leaving from.'
+    else if (!place) nextErrors.from = 'Pick an address from the list so riders know exactly where to meet you.'
     if (!departure) nextErrors.departure = 'Choose when you are leaving.'
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     const priceValue = Number(price)
     if (!price || Number.isNaN(priceValue) || priceValue <= 0) nextErrors.price = 'Enter a price per seat.'
+    // Stripe's smallest card payment in Canadian dollars.
+    else if (priceValue < 0.5) nextErrors.price = 'Riders pay by card, so a seat has to cost at least $0.50.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    if (!user) {
-      navigate('/login')
+    if (!user || !place) {
+      if (!user) navigate('/login')
       return
     }
 
     setSubmitting(true)
     setNotice('')
     try {
-      // Turn the typed starting point into coordinates for origin_point.
-      const coordinates = await geocode(from.trim())
-      if (!coordinates) {
-        setErrors({ from: 'We couldn\'t find that place in Manitoba. Try adding the town, e.g. "Main St, Steinbach".' })
-        return
-      }
-
       const response = await apiFetch('/rides', {
         method: 'POST',
         body: JSON.stringify({
           // Fields create_ride reads today. The driver is whoever is logged in (from the token).
-          origin_point: { type: 'Point', coordinates }, // GeoJSON order: [longitude, latitude]
+          origin_point: { type: 'Point', coordinates: place.coordinates }, // GeoJSON order: [longitude, latitude]
           departure_time: new Date(departure).toISOString(),
           seats,
-          // Not saved by the backend yet; ignored until CreateRideBody has them:
-          origin_label: from.trim(),
-          destination_label: DESTINATION,
           price_cents: Math.round(priceValue * 100),
+          // Not saved by the backend yet; ignored until CreateRideBody has them (see README TODO):
+          origin_label: place.label,
+          destination_label: DESTINATION,
         }),
       })
       if (response.status === 403) {
@@ -150,13 +107,19 @@ export default function PostRidePage() {
         ) : (
           <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
             <div className="space-y-4">
-              <TextField
+              <AddressInput
                 label="Leaving from"
-                name="from"
-                placeholder="Address, town or landmark"
+                placeholder="Start typing an address, town or landmark"
                 value={from}
-                onChange={(event) => {
-                  setFrom(event.target.value)
+                selectedPoint={place?.coordinates}
+                onChange={(text) => {
+                  setFrom(text)
+                  setPlace(null)
+                  clearError('from')
+                }}
+                onSelect={(picked) => {
+                  setFrom(picked.label)
+                  setPlace(picked)
                   clearError('from')
                 }}
                 error={errors.from}
@@ -192,7 +155,7 @@ export default function PostRidePage() {
                 type="number"
                 name="price"
                 inputMode="decimal"
-                min="0.25"
+                min="0.50"
                 step="0.25"
                 placeholder="5.00"
                 value={price}
@@ -216,7 +179,7 @@ export default function PostRidePage() {
               <Icon className="h-4 w-4">{icons.arrow}</Icon>
             </button>
             {notice && (
-              <p role="alert" className="rounded-xl bg-mist px-4 py-3 text-center text-sm text-subtle">
+              <p role="alert" className={errorNotice}>
                 {notice}
               </p>
             )}

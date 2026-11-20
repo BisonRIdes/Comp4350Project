@@ -1,6 +1,13 @@
 // The signed-in user and their login token (from POST /auth/login). Kept in localStorage until sign out.
 export type CurrentUser = { id: string; username: string; email: string; is_driver: boolean }
 
+export const STUDENT_EMAIL_DOMAIN = '@myumanitoba.ca'
+
+// Keeps only the part before the @, so a pasted or autofilled full email still works.
+export function emailUsername(value: string): string {
+  return value.split('@')[0].replace(/\s/g, '')
+}
+
 const KEY = 'currentUser'
 const TOKEN_KEY = 'token'
 

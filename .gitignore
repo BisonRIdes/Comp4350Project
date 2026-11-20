@@ -7,3 +7,6 @@ htmlcov
 .env
 *.db
 .vscode
+
+# Redundant documentation
+documents/TODO.md

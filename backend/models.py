@@ -1,12 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-from util.constants import USERNAME_LENGTH
+from util.constants import MESSAGE_LENGTH, USERNAME_LENGTH
 
 user_id: Final = "users.id"
 
@@ -37,6 +37,8 @@ class Ride(Base):
     origin_point: Mapped[dict] = mapped_column(JSON)
     departure_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     seats: Mapped[int] = mapped_column(default=1)
+    # What each rider pays for a seat, in cents (CAD). Rides posted before prices were saved have none.
+    price_cents: Mapped[int | None] = mapped_column(default=None)
 
 
 class RideRequest(Base):
@@ -46,6 +48,7 @@ class RideRequest(Base):
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), index=True)
     rider_id: Mapped[str] = mapped_column(ForeignKey(user_id), index=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")
+    detour_point: Mapped[dict | None] = mapped_column(JSON, default=None, nullable=True)
 
 
 class RideRegistration(Base):
@@ -53,3 +56,50 @@ class RideRegistration(Base):
 
     ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
     rider_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
+
+
+class RideDetour(Base):
+    __tablename__ = "ride_detours"
+
+    ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id"), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey(user_id), primary_key=True, index=True)
+    detour_point: Mapped[dict] = mapped_column(JSON)
+
+
+class Payment(Base):
+    """A rider's card payment for their seat on a ride. Stripe keeps the card details and history."""
+
+    __tablename__ = "payments"
+
+    request_id: Mapped[str] = mapped_column(ForeignKey("ride_requests.id"), primary_key=True)
+    stripe_payment_id: Mapped[str] = mapped_column(String(255), unique=True)
+    amount_cents: Mapped[int]
+    # "unpaid" until Stripe's webhook says the money arrived, then "paid"
+    status: Mapped[str] = mapped_column(String(20), default="unpaid")
+
+
+class ChatRecord(Base):
+    """A group chat or a private chat associated with a ride."""
+
+    __tablename__ = "chats"
+    __table_args__ = (UniqueConstraint("ride_id", "type", "rider_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id", ondelete="CASCADE"), index=True)
+    type: Mapped[str] = mapped_column(String(8))
+    rider_key: Mapped[str] = mapped_column(String(36), default="")
+
+
+class MessageRecord(Base):
+    """A message belonging to a ride chat."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (Index("ix_chat_messages_page", "chat_id", "created_at", "id"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    chat_id: Mapped[str] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"))
+    sender_id: Mapped[str] = mapped_column(ForeignKey(user_id))
+    content: Mapped[str] = mapped_column(String(MESSAGE_LENGTH))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )

@@ -3,10 +3,13 @@ import { Link, NavLink, useNavigate } from 'react-router'
 import { Icon } from './Icon'
 import { icons } from './icons'
 import { getUser, logout } from '../lib/auth'
+import { useUpdates } from '../hooks/useUpdates'
 
 const appLinks = [
   { to: '/post-ride', label: 'Post Ride' },
   { to: '/dashboard', label: 'Find Ride' },
+  { to: '/notifications', label: 'Notifications' },
+  { to: '/messages', label: 'Messages' },
   { to: '/map', label: 'Map' },
 ]
 
@@ -16,6 +19,10 @@ export function DashboardNavbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const user = getUser()
+  // Shown on the Notifications link from any page: requests waiting on the driver, plus answers
+  // the rider hasn't read.
+  const { pendingRequests, unreadDecisions } = useUpdates()
+  const notificationCount = pendingRequests.length + unreadDecisions.length
 
   // Close the profile menu on an outside click or Escape.
   useEffect(() => {
@@ -43,12 +50,12 @@ export function DashboardNavbar() {
   return (
     <header className="sticky top-0 z-20 border-b border-black/5 bg-white/75 backdrop-blur-xl backdrop-saturate-150">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link to="/dashboard" className="font-serif text-2xl font-semibold tracking-tight text-ink">
+        <Link to="/dashboard" className="shrink-0 font-serif text-2xl font-semibold tracking-tight text-ink">
           BisonRides
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-6">
-          <div className="flex items-center gap-1 text-[13px] sm:gap-2">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-6">
+          <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-[13px] sm:gap-2">
             {appLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -60,11 +67,17 @@ export function DashboardNavbar() {
                 }
               >
                 {link.label}
+                {link.to === '/notifications' && notificationCount > 0 && (
+                  <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
+                    {notificationCount}
+                    <span className="sr-only"> unread</span>
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
 
-          <div ref={menuRef} className="relative">
+          <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
@@ -94,6 +107,14 @@ export function DashboardNavbar() {
                   className="block rounded-xl px-3 py-2 text-ink transition-colors duration-300 hover:bg-mist"
                 >
                   Profile
+                </Link>
+                <Link
+                  to="/history"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-xl px-3 py-2 text-ink transition-colors duration-300 hover:bg-mist"
+                >
+                  Request history
                 </Link>
                 <button
                   type="button"
