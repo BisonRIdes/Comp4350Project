@@ -206,7 +206,7 @@ function ChatPanel({ chat, userId }: { chat: Chat; userId: string }) {
       <form onSubmit={handleSend} className="flex items-end gap-3 border-t border-black/10 pt-4">
         <label className="flex-1">
           <span className="sr-only">Message</span>
-          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2}
+          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} maxLength={512}
             placeholder="Type a message…" disabled={unavailable || loading} className={`${inputClass} resize-y disabled:opacity-60`} />
         </label>
         <button type="submit" disabled={!draft.trim() || sending || unavailable || loading} className={`${primaryButton} disabled:opacity-60`}>
