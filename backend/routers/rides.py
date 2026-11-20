@@ -1,13 +1,15 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideRegistration, RideRequest, User
-from schemas import CreateRideBody, RideOut, UpdateRideBody
+from models import Ride, RideDetour, RideRegistration, RideRequest, User
+from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
 from util.auth import CurrentUser, get_current_user
+from util.constants import U_OF_M_COORD
+from util.ride_utils import get_distance
 from util.seats import count_accepted
 
 # every rides route needs a logged-in student
@@ -130,3 +132,37 @@ async def delete_ride(
     await db.execute(delete(RideRequest).where(RideRequest.ride_id == ride_id))
     await db.delete(ride)
     await db.commit()
+
+
+# get all detours for a specific ride with detour points ordered from furthest away from U of M to closest
+@router.get("/{ride_id}/detours", status_code=200)
+async def get_detours(
+    ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> RideDetoursOut:
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    registered_for = await db.scalar(
+        select(
+            exists().where(
+                and_(RideRegistration.ride_id == ride_id, RideRegistration.rider_id == user.id)
+            )
+        )
+    )
+    if not registered_for and ride.driver_id != user.id:
+        raise HTTPException(status_code=403, detail="not authorized to see detours for this ride")
+
+    # get all detours associated with this ride
+    db_detours = await db.execute(select(RideDetour).where(RideDetour.ride_id == ride_id))
+
+    detours = [
+        {"owner_id": d.owner_id, "detour_point": GeoJSONPoint.model_validate(d.detour_point)}
+        for d in db_detours.scalars().all()
+    ]
+
+    # sort based on distance from ride origin
+    uni = GeoJSONPoint.model_validate(U_OF_M_COORD)
+    detours.sort(key=lambda detour: get_distance(uni, detour["detour_point"]), reverse=True)
+
+    return RideDetoursOut(ride_id=ride.id, detours=detours)
