@@ -10,6 +10,7 @@ from util.constants import USERNAME_LENGTH
 
 user_id: Final = "users.id"
 
+MESSAGE_LENGTH: Final = 512
 
 def new_id() -> str:
     return str(uuid.uuid4())
@@ -99,7 +100,7 @@ class MessageRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     chat_id: Mapped[str] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"))
     sender_id: Mapped[str] = mapped_column(ForeignKey(user_id))
-    content: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(String(MESSAGE_LENGTH))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
