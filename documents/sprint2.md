@@ -231,8 +231,8 @@ TODO
 **Cam** (prompt: What part of the current testing, CI, or CD process creates the most friction, and what might improve it?)\
 When I was working with the messages UI, I noticed that on backend we have already had extensive testing for database queries and API calls, but currently we do not have any end-to-end or automated UI testing for our frontend. This ultimately hampered frontend testing as we had to rely on manual testing to verify the workflow and catch any bug or issues that hamper user experience. This is evident by the absurd number of commits I pushed in [#95](https://github.com/BisonRIdes/Comp4350Project/pull/95) to fix the UI bugs that we found out only after CI/CD process and automated testing had finished without stopping. One way we can improve it in our next iteration is by having end-to-end testing tools integrated for our frontend side like in backend (backend refuses deployment if even a single unit test fails).
 
-**Matt** (prompt: TODO)
-TODO
+**Matt** (What is the most important technical risk or uncertainty going into the final iteration?)
+I think the biggest technical risk we have is that we don't test the backend and frontend together, nor do we have automated tests for the frontend itself. As our project grows in complexity, I think it would be in our best interest to increase our number of tests and test variety so we can be confident our system is working correctly by the end of the final iteration.
 
 **Shiv** (What technical decision or implementation improved most since Sprint 1, and why?)
 
