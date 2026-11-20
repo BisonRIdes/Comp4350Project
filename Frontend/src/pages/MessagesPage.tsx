@@ -10,7 +10,7 @@ const refreshInterval = 15_000
 
 function messageError(error: unknown) {
   if (error instanceof ApiError) {
-    if (error.status === 403) return 'You no longer have access to this chat.'
+    if (error.status === 403) return error.message
     if (error.status === 404) return 'This chat no longer exists.'
     return error.message
   }
