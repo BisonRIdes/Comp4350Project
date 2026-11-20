@@ -424,6 +424,7 @@ async def test_send_chat_message_rejects_empty_content():
 
     assert response.status_code == 422
 
+
 async def test_send_chat_message_rejects_excess_message_limit():
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider")
@@ -432,7 +433,7 @@ async def test_send_chat_message_rejects_excess_message_limit():
     chat = client.post(f"/rides/{ride_id}/chats/group", headers=auth(driver_id)).json()
 
     characters = string.ascii_letters + string.digits
-    large_message = ''.join(random.choices(characters, k=MESSAGE_LENGTH + 1))
+    large_message = "".join(random.choices(characters, k=MESSAGE_LENGTH + 1))
 
     response = client.post(
         f"/chats/{chat['id']}/messages",
@@ -441,6 +442,7 @@ async def test_send_chat_message_rejects_excess_message_limit():
     )
 
     assert response.status_code == 422
+
 
 async def test_nonparticipant_cannot_send_or_list_chat_messages():
     driver_id = await make_user("driver", True)

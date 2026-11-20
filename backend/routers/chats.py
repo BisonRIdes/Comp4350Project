@@ -139,7 +139,7 @@ async def send_chat_message(
     chat_id: str, body: MessageBody, user: CurrentUser, db: Db
 ) -> ChatMessage:
     chat = await accessible_chat(db, chat_id, user.id)
-    if (len(body.content) > MESSAGE_LENGTH):
+    if len(body.content) > MESSAGE_LENGTH:
         raise HTTPException(status_code=422, detail="Message is too long")
     message = MessageRecord(chat_id=chat.id, sender_id=user.id, content=body.content)
     db.add(message)
