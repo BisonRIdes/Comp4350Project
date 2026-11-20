@@ -15,6 +15,7 @@
 | Architecture | [Architecture section below](#api-and-architecture) |
 | Backend setup | [`backend/README.md`](../backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
+| Cross-team Testing | [Cross-team testing section below](#cross-team-testing) |
 
 ## Sprint Summary
 
