@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DashboardNavbar } from '../components/DashboardNavbar'
+import { GroupChatButton } from '../components/GroupChatButton'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import { SeatStepper } from '../components/SeatStepper'
@@ -177,6 +178,8 @@ export default function EditRidePage() {
         ) : !original ? (
           <div aria-label="Loading ride" className="mt-10 h-96 animate-pulse rounded-3xl bg-mist" />
         ) : (
+          <>
+          <GroupChatButton rideId={rideId} />
           <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
             <div className="space-y-4">
               <TextField
@@ -258,6 +261,7 @@ export default function EditRidePage() {
               </p>
             )}
           </form>
+          </>
         )}
       </main>
     </div>

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router'
 import { DashboardNavbar } from '../components/DashboardNavbar'
+import { GroupChatButton } from '../components/GroupChatButton'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
 import type { Ride } from '../components/RideCard'
@@ -54,10 +55,13 @@ function RequestSeat({ rideId, full }: { rideId: string; full: boolean }) {
   if (loading) return <div aria-label="Checking your requests" className="mt-8 h-12 animate-pulse rounded-full bg-mist" />
   if (status) {
     return (
-      <p role="status" className="mt-8 flex flex-wrap items-center gap-3 text-[15px]">
-        <RequestStatusBadge status={status} />
-        {statusMessages[status]}
-      </p>
+      <>
+        <p role="status" className="mt-8 flex flex-wrap items-center gap-3 text-[15px]">
+          <RequestStatusBadge status={status} />
+          {statusMessages[status]}
+        </p>
+        {status === RequestStatus.Accepted && <GroupChatButton rideId={rideId} />}
+      </>
     )
   }
   if (full) {

@@ -9,6 +9,7 @@ const appLinks = [
   { to: '/post-ride', label: 'Post Ride' },
   { to: '/dashboard', label: 'Find Ride' },
   { to: '/notifications', label: 'Notifications' },
+  { to: '/messages', label: 'Messages' },
   { to: '/map', label: 'Map' },
 ]
 
@@ -49,12 +50,12 @@ export function DashboardNavbar() {
   return (
     <header className="sticky top-0 z-20 border-b border-black/5 bg-white/75 backdrop-blur-xl backdrop-saturate-150">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link to="/dashboard" className="font-serif text-2xl font-semibold tracking-tight text-ink">
+        <Link to="/dashboard" className="shrink-0 font-serif text-2xl font-semibold tracking-tight text-ink">
           BisonRides
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-6">
-          <div className="flex items-center gap-1 text-[13px] sm:gap-2">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-6">
+          <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-[13px] sm:gap-2">
             {appLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -76,7 +77,7 @@ export function DashboardNavbar() {
             ))}
           </div>
 
-          <div ref={menuRef} className="relative">
+          <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
