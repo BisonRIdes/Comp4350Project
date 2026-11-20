@@ -12,13 +12,19 @@ from fastapi.testclient import TestClient
 
 from database import SessionLocal
 from main import app
-from models import Payment, Ride, RideRegistration, RideRequest, User
+from models import Payment, Ride, RideDetour, RideRegistration, RideRequest, User
+from schemas import GeoJSONPoint
 from util.security import hash_password
 from util.tokens import create_token
 
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 
 POINT = {"type": "Point", "coordinates": [-97.14, 49.89]}
+DETOUR_POINTS = [
+    {"type": "Point", "coordinates": [-97.10, 49.83]},  # St Vital Centre
+    {"type": "Point", "coordinates": [-97.13, 49.89]},  # The Forks
+    {"type": "Point", "coordinates": [-97.16, 49.85]},  # Walmart
+]
 STRIPE_WEBHOOK_SECRET = "whsec_test"
 
 
@@ -80,6 +86,13 @@ async def make_registration(ride: str, rider: str):
     async with SessionLocal() as db:
         reg = RideRegistration(ride_id=ride, rider_id=rider)
         db.add(reg)
+        await db.commit()
+
+
+async def make_detour(ride: str, owner: str, point: GeoJSONPoint):
+    async with SessionLocal() as db:
+        detour = RideDetour(ride_id=ride, owner_id=owner, detour_point=point)
+        db.add(detour)
         await db.commit()
 
 
