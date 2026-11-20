@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from tests.helpers import STRIPE_WEBHOOK_SECRET, stripe_signature
 from util import stripe_api
 
+pytestmark = pytest.mark.regression
 
 @pytest.fixture
 def client(monkeypatch):
