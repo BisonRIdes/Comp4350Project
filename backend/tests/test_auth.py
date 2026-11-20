@@ -5,6 +5,8 @@ import pytest
 from database import SessionLocal
 from models import User
 from tests.helpers import client, make_user
+from util import login_limit
+from util.constants import FAILED_LOGIN_WINDOW_SECONDS, MAX_FAILED_LOGINS
 from util.tokens import create_token, read_token
 
 pytestmark = pytest.mark.regression
@@ -51,6 +53,61 @@ async def test_login_wrong_password():
     response = client.post("/auth/login", json={**LOGIN, "password": "wrong-password"})
 
     assert response.status_code == 401
+
+
+async def test_login_locks_after_too_many_wrong_passwords():
+    await make_user("alice", verified=True, password="password123")
+    wrong = {**LOGIN, "password": "wrong-password"}
+
+    for _ in range(MAX_FAILED_LOGINS):
+        assert client.post("/auth/login", json=wrong).status_code == 401
+
+    # even the right password is refused until the window passes
+    response = client.post("/auth/login", json=LOGIN)
+    assert response.status_code == 429
+
+
+async def test_login_lock_counts_any_capitalization_of_the_email():
+    wrong = {**LOGIN, "email": "ALICE@myumanitoba.ca", "password": "wrong-password"}
+    for _ in range(MAX_FAILED_LOGINS):
+        client.post("/auth/login", json=wrong)
+
+    assert client.post("/auth/login", json=LOGIN).status_code == 429
+
+
+async def test_login_lock_ends_after_the_window(monkeypatch):
+    await make_user("alice", verified=True, password="password123")
+    wrong = {**LOGIN, "password": "wrong-password"}
+    clock = [1000.0]
+    monkeypatch.setattr(login_limit, "now", lambda: clock[0])
+    for _ in range(MAX_FAILED_LOGINS):
+        client.post("/auth/login", json=wrong)
+
+    clock[0] += FAILED_LOGIN_WINDOW_SECONDS + 1
+
+    assert client.post("/auth/login", json=LOGIN).status_code == 200
+
+
+async def test_login_success_clears_earlier_failures():
+    await make_user("alice", verified=True, password="password123")
+    wrong = {**LOGIN, "password": "wrong-password"}
+    for _ in range(MAX_FAILED_LOGINS - 1):
+        client.post("/auth/login", json=wrong)
+    assert client.post("/auth/login", json=LOGIN).status_code == 200
+
+    # the count started over, so one more typo doesn't lock the account
+    assert client.post("/auth/login", json=wrong).status_code == 401
+    assert client.post("/auth/login", json=LOGIN).status_code == 200
+
+
+async def test_login_lock_is_per_email():
+    await make_user("bob", verified=True, password="password123")
+    wrong = {**LOGIN, "password": "wrong-password"}
+    for _ in range(MAX_FAILED_LOGINS):
+        client.post("/auth/login", json=wrong)
+
+    bob = {"email": "bob@myumanitoba.ca", "password": "password123"}
+    assert client.post("/auth/login", json=bob).status_code == 200
 
 
 async def test_login_unknown_email_looks_like_a_wrong_password():

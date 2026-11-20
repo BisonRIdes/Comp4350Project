@@ -23,6 +23,14 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(autouse=True)
+def fresh_login_limit():
+    # failed logins from one test must not lock out the same email in the next
+    from util import login_limit
+
+    login_limit.reset()
+
+
+@pytest.fixture(autouse=True)
 def no_real_emails(monkeypatch):
     # tests must never email real students, even if RESEND_API_KEY is set on your machine
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
