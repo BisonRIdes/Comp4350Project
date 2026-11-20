@@ -21,7 +21,7 @@ from util.constants import MESSAGE_LENGTH
 
 
 class PersonalChatBody(CreatePersonalChatRequest):
-    rider_id: str
+    rider_id: str | None = None
 
 
 class MessageBody(SendMessageRequest):

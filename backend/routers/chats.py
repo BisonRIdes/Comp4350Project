@@ -40,6 +40,10 @@ async def create_personal_chat(
 ) -> ChatType:
     ride = await get_ride(db, ride_id)
     rider_id = body.rider_id
+    if rider_id is None:
+        if user.id == ride.driver_id:
+            raise HTTPException(status_code=422, detail="Driver must specify a rider_id")
+        rider_id = user.id
     registration = await db.get(RideRegistration, (ride.id, rider_id))
     if rider_id == ride.driver_id:
         raise HTTPException(

@@ -68,7 +68,7 @@ async def test_registered_rider_can_create_private_chat_with_driver():
 
     response = client.post(
         f"/rides/{ride_id}/chats/personal",
-        json={"rider_id": rider_id},
+        json={},
         headers=auth(rider_id),
     )
 

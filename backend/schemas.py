@@ -229,7 +229,7 @@ class LoginResponse(BaseModel):
 
 
 class CreatePersonalChatRequest(BaseModel):
-    rider_id: str
+    rider_id: str | None = None
 
 
 class ChatParticipant(BaseModel):
