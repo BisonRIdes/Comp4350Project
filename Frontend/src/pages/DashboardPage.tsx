@@ -81,10 +81,12 @@ function describeSearch(search: Search) {
 // One segment of the search bar: small label above a borderless input.
 function SearchField({ label, ...inputProps }: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="block cursor-text px-5 py-3 transition-colors duration-300 hover:bg-mist md:rounded-full">
+    <label
+      className={`block ${inputProps.readOnly ? 'cursor-default' : 'cursor-text'} px-5 py-3 transition-colors duration-300 hover:bg-mist md:rounded-full`}
+    >
       <span className="block text-xs font-medium text-ink">{label}</span>
       <input
-        className="mt-0.5 w-full bg-transparent text-[15px] text-ink placeholder:text-neutral-400 focus:outline-none"
+        className={`mt-0.5 w-full bg-transparent text-[15px] text-ink placeholder:text-neutral-400 focus:outline-none ${inputProps.readOnly ? 'cursor-default' : ''}`}
         {...inputProps}
       />
     </label>
