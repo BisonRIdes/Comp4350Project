@@ -32,10 +32,10 @@ export async function createGroupChat(rideId: string): Promise<Chat> {
   return response.json()
 }
 
-export async function createPersonalChat(rideId: string, riderId: string): Promise<Chat> {
+export async function createPersonalChat(rideId: string, riderId?: string): Promise<Chat> {
   const response = await apiFetch(`/rides/${encodeURIComponent(rideId)}/chats/personal`, {
     method: 'POST',
-    body: JSON.stringify({ rider_id: riderId }),
+    body: JSON.stringify(riderId ? { rider_id: riderId } : {}),
   })
   await throwIfNotOk(response)
   return response.json()
