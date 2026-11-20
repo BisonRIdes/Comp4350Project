@@ -12,6 +12,7 @@ user_id: Final = "users.id"
 
 MESSAGE_LENGTH: Final = 512
 
+
 def new_id() -> str:
     return str(uuid.uuid4())
 
