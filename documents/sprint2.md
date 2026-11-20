@@ -211,8 +211,9 @@ TODO
 **Matt** (prompt: TODO)
 TODO
 
-**Shiv** (prompt: TODO)
-TODO
+**Shiv** (What technical decision or implementation improved most since Sprint 1, and why?)
+
+The biggest improvement since Sprint 1 is the ride request workflow between riders and drivers. In Sprint 1 the backend supported requests, but the frontend had no screens for them and requests only carried IDs. Now a rider can request a seat, the driver is notified and accepts or declines, and the rider is notified and can pay, cancel or leave, all without reloading. The key decision was to let the backend own the facts: request details (names, ride time and place), seats left and the driver's name are computed in the backend, and full rides are rejected there, so every screen shows the same, correct data. On the frontend, a single shared poll feeds the notification badge, the Notifications page and My seats, and a layered structure.
 
 **Shrey** (prompt: TODO)
 TODO
