@@ -231,7 +231,7 @@ TODO
 - **Detour matching is basic.** Riders can request the driver take a detour, but this detour is not visualized on the map for the ride.
 - **Chats have no UI.** The backend is done, but users can't chat yet.
 - **Deleting a ride with accepted riders** still returns `409`. The final rule (cancel and email riders, or a cancelled status) is still open.
-- **`main` is behind `dev`.** All work is merged into `dev` and render deploys from there. This has been convenient while developing, but warants two separate environments to be more complete.
+- **Render builds `dev` not `main`.** This has been convenient while developing, but warrants two separate environments to be more complete.
 - **Little logging.** Errors on the live API are hard to trace beyond Render's request log, and should receive more comprehensive logging.
 - **Render free tier** sleeps when idle, which also delays Stripe webhooks until it wakes (Stripe retries).
 
