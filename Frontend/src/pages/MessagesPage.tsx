@@ -141,7 +141,7 @@ function ChatPanel({ chat, userId }: { chat: Chat; userId: string }) {
       </Link>
       <h2 className="mt-3 text-xl font-semibold md:mt-0">{chat.type === 'group' ? 'Ride group' : 'Personal chat'}</h2>
       <Link to={`/rides/${encodeURIComponent(chat.ride_id)}`} className="mt-1 inline-block break-all text-sm text-subtle underline-offset-4 hover:underline">
-        <Ride></Ride>
+        Ride
       </Link>
 
       {chat.type === 'group' && chat.participants[0]?.id === userId && chat.participants.length > 1 && (
