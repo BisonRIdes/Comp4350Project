@@ -12,12 +12,13 @@ On every pull request, including PRs into `dev` and `main`.
 ### Which tools or frameworks execute it?
 - **GitHub Actions** runs the suite: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 - **pytest** is the test framework: [`backend/tests/`](../backend/tests/)
+- **testcontainers** starts a throwaway `postgres:16-alpine` database for the run.
 
 ### Approximately how long does the suite take?
 Under one minute, so we can run it on every PR.
 
 ### What happens when a regression test fails?
-The PR shows a failing check (red ✗), which signals that the change should be fixed before merging.
+The PR shows a failing check (red ✗), which signals that the change should be fixed before merging. Further we have a ruleset that disallows merging if any tests fail.
 
 ### Where can the instructor see evidence from a recent run?
 A recent CI run is available here: [GitHub Actions run #44649239590](https://github.com/BisonRIdes/Comp4350Project/actions/runs/44649239590)
