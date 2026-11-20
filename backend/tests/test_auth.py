@@ -7,6 +7,8 @@ from models import User
 from tests.helpers import client, make_user
 from util.tokens import create_token, read_token
 
+pytestmark = pytest.mark.regression
+
 
 @pytest.fixture
 def send(monkeypatch) -> AsyncMock:

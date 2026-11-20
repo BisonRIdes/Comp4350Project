@@ -10,6 +10,8 @@ from main import app
 from tests.helpers import auth, make_user
 from util.tokens import create_token, read_token
 
+pytestmark = pytest.mark.regression
+
 client = TestClient(app, headers={"x-key": os.environ["API_KEY"]})
 BODY = {"username": "alice", "email": "alice@myumanitoba.ca", "password": "Password123!"}
 

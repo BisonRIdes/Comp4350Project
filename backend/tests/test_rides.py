@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import select
 
 from database import SessionLocal
@@ -15,6 +16,8 @@ from tests.helpers import (
     make_ride,
     make_user,
 )
+
+pytestmark = pytest.mark.regression
 
 TIME = "2026-11-01T14:30:00Z"
 
