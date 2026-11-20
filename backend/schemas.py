@@ -6,8 +6,8 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from models import MESSAGE_LENGTH
 from util.constants import (
+    MESSAGE_LENGTH,
     MIN_PRICE_CENTS,
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
