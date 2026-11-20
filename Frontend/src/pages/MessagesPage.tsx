@@ -158,6 +158,15 @@ function ChatPanel({ chat, userId }: { chat: Chat; userId: string }) {
         </div>
       )}
 
+      {chat.type === 'group' && chat.participants.slice(1).some((participant) => participant.id === userId) && (
+        <div className="mt-4 border-t border-black/10 pt-4">
+          <button type="button" onClick={() => openPersonalChat(userId)} disabled={!!openingRider || unavailable}
+            className="max-w-full break-all rounded-full bg-mist px-4 py-2 text-sm hover:bg-black/10 disabled:opacity-60">
+            {openingRider ? 'Opening…' : 'Message driver privately'}
+          </button>
+        </div>
+      )}
+
       {error && <p role="alert" className={`${errorNotice} mt-4`}>{error}</p>}
       {refreshError && <p role="alert" className={`${errorNotice} mt-4`}>{refreshError}</p>}
       {loading ? (
