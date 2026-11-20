@@ -17,14 +17,15 @@ from schemas import (
     CreatePersonalChatRequest,
     SendMessageRequest,
 )
+from util.constants import MESSAGE_LENGTH
 
 
 class PersonalChatBody(CreatePersonalChatRequest):
-    rider_id: str
+    rider_id: str | None = None
 
 
 class MessageBody(SendMessageRequest):
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MESSAGE_LENGTH)
 
 
 class ChatType(Chat):

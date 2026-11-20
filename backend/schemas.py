@@ -7,6 +7,7 @@ from typing import Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from util.constants import (
+    MESSAGE_LENGTH,
     MIN_PRICE_CENTS,
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
@@ -228,7 +229,7 @@ class LoginResponse(BaseModel):
 
 
 class CreatePersonalChatRequest(BaseModel):
-    rider_id: str
+    rider_id: str | None = None
 
 
 class ChatParticipant(BaseModel):
@@ -245,7 +246,7 @@ class Chat(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    content: str
+    content: str = Field(min_length=1, max_length=MESSAGE_LENGTH)
 
 
 class ChatMessage(BaseModel):
