@@ -34,6 +34,7 @@ tags:
   - name: Requests
   - name: Updates
   - name: Payments
+  - name: Chats
 
 paths:
   /auth/login:
@@ -262,6 +263,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RideRequest" }
+        "400":
+          description: The ride is full (every seat is taken by an accepted rider)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
           description: The logged-in user is this ride's driver
@@ -274,6 +280,51 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /rides/{ride_id}/detours:
+  get:
+    summary: Get all detours for a ride
+    description: >
+      Retrieves all detour points associated with a specific ride.
+      Access is restricted to the ride's driver and registered riders.
+      Detours are ordered by distance from the University of Manitoba,
+      from furthest to closest.
+    operationId: get_detours
+    tags: [Rides]
+    parameters:
+      - name: ride_id
+        in: path
+        required: true
+        description: The unique ID of the ride.
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Successfully retrieved the ride's detours.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RideDetours'
+      '403':
+        description: The authenticated user is neither the ride's driver nor a registered rider.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+                  example: not authorized to see detours for this ride
+      '404':
+        description: The requested ride does not exist.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                detail:
+                  type: string
+                  example: Ride not found
 
   /requests/mine:
     get:
@@ -484,6 +535,133 @@ paths:
               schema: { $ref: "#/components/schemas/Updates" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /rides/{ride_id}/chats/personal:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    post:
+      tags: [Chats]
+      operationId: createPersonalChat
+      summary: Create or find a private chat for a ride
+      description: |
+        The ride's driver or the specified registered rider may initiate this
+        request. If a rider initiates it, rider_id must be their own ID. The
+        participants are the ride's driver and the specified registered rider.
+        Returns the existing chat if one already exists for this ride and rider.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePersonalChatRequest" }
+      responses:
+        "200":
+          description: Existing personal chat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Chat" }
+        "201":
+          description: Personal chat created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Chat" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ChatForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /rides/{ride_id}/chats/group:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    post:
+      tags: [Chats]
+      operationId: createGroupChat
+      summary: Create or find the group chat for a ride
+      description: |
+        The caller must be the ride's driver or a registered rider. The group
+        consists of the driver and registered riders; returns the existing chat
+        if one already exists for the ride.
+      responses:
+        "200":
+          description: Existing group chat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Chat" }
+        "201":
+          description: Group chat created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Chat" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ChatForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /chats:
+    get:
+      tags: [Chats]
+      operationId: listChats
+      summary: List the logged-in user's chats
+      description: Only chats the caller may access are returned.
+      responses:
+        "200":
+          description: Chats accessible to the logged-in user
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Chat" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /chats/{chat_id}/messages:
+    parameters:
+      - $ref: "#/components/parameters/ChatId"
+    get:
+      tags: [Chats]
+      operationId: listChatMessages
+      summary: Get a page of messages in a chat
+      description: |
+        Only current chat participants may read messages. Messages are returned
+        newest first; pass `next_cursor` to fetch older messages.
+      parameters:
+        - name: cursor
+          in: query
+          description: Opaque cursor returned by a previous page
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Page of messages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessagePage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ChatForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [Chats]
+      operationId: sendChatMessage
+      summary: Send a message to a chat
+      description: |
+        Only current chat participants may send messages. The sender is determined
+        from the login token, not the request body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendMessageRequest" }
+      responses:
+        "201":
+          description: Message created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ChatForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
 components:
   securitySchemes:
     ApiKeyHeader:
@@ -508,6 +686,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ChatId:
+      name: chat_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
 
   responses:
     Unauthorized:
@@ -517,6 +700,11 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotYourRide:
       description: The logged-in user is not this ride's driver
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ChatForbidden:
+      description: The logged-in user is not eligible to access this chat
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -542,6 +730,68 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
+    CreatePersonalChatRequest:
+      type: object
+      required: [rider_id]
+      properties:
+        rider_id: { type: string, format: uuid, description: "Registered rider to chat with; if the caller is a rider, this must be their own ID" }
+
+    Chat:
+      type: object
+      description: |
+        A chat associated with a ride. A personal chat includes the driver and
+        its registered rider; a group chat includes the driver and all registered
+        riders. Access follows current registrations, so cancelling a ride
+        registration removes chat access.
+      required: [id, ride_id, type, participant_ids, participants]
+      properties:
+        id: { type: string, format: uuid }
+        ride_id: { type: string, format: uuid }
+        type: { type: string, enum: [personal, group] }
+        participant_ids:
+          type: array
+          items: { type: string, format: uuid }
+          deprecated: true
+          description: "Deprecated: Use `participants` field instead."
+        participants:
+          description: Current usernames for the participants, in the same order as participant_ids.
+          type: array
+          items: { $ref: "#/components/schemas/ChatParticipant" }
+
+    ChatParticipant:
+      type: object
+      required: [id, username]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, example: "I'll be there in 5 minutes." }
+
+    ChatMessage:
+      type: object
+      required: [id, chat_id, sender_id, content, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        chat_id: { type: string, format: uuid }
+        sender_id: { type: string, format: uuid }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+
+    MessagePage:
+      type: object
+      required: [messages, next_cursor]
+      properties:
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/ChatMessage" }
+        next_cursor:
+          type: [string, "null"]
+          description: Cursor for the next page of older messages, or null if there are no more
+
     Error:
       type: object
       required: [detail]
@@ -628,16 +878,22 @@ components:
 
     Ride:
       type: object
-      required: [id, driver_id, origin_point, departure_time, seats, price_cents]
+      required:
+        [id, driver_id, driver_username, origin_point, departure_time, seats, price_cents, seats_left]
       properties:
         id: { type: string, format: uuid }
         driver_id: { type: string, format: uuid }
+        driver_username: { type: string, description: The student driving the ride }
         origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
         departure_time: { type: string, format: date-time }
         seats: { type: integer, minimum: 0 }
         price_cents:
           type: [integer, "null"]
           description: What each rider pays for a seat, in cents (CAD). Null for rides posted before prices were saved.
+        seats_left:
+          type: integer
+          minimum: 0
+          description: Seats not yet taken by accepted riders, whether they've paid or not. 0 means the ride is full.
 
     CreateRideRequest:
       type: object
@@ -688,6 +944,32 @@ components:
             driver_username: { type: string, description: The student driving the ride }
             departure_time: { type: string, format: date-time, description: When the ride leaves }
             origin_point: { $ref: "#/components/schemas/GeoJSONPoint" }
+
+    Detour:
+      type: object
+      description: Information about a single detour.
+      required: [owner_id, detour_point]
+      properties:
+        owner_id:
+          type: string
+          description: The unique ID of the user who created the detour.
+        detour_point:
+          $ref: '#/components/schemas/GeoJSONPoint'
+          description: The geographic coordinates of the detour.
+
+    RideDetours:
+      type: object
+      description: Information about detours associated with a ride.
+      required: [ride_id, detours]
+      properties:
+        ride_id:
+          type: string
+          description: The unique ID of the ride.
+        detours:
+          type: array
+          description: List of detour points associated with the ride, ordered from furthest to closest to the University of Manitoba.
+          items:
+            $ref: '#/components/schemas/Detour'      
 
     RideRegistration:
       type: object

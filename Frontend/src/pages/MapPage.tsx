@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { RideCard } from '../components/RideCard'
-import { RideDetailsModal } from '../components/RideDetailsModal'
 import { LazyRideMap } from '../components/LazyRideMap'
 import { useOpenRide } from '../hooks/useOpenRide'
 import { useRides } from '../hooks/useRides'
@@ -12,7 +11,7 @@ import { headingClass } from '../styles'
 // Hovering a card highlights its dot and hovering a dot highlights its card; clicking either opens the ride.
 export default function MapPage() {
   const { rides, loading, error } = useRides()
-  const { selectedRide, openRide, closeRide, isOwn } = useOpenRide()
+  const { openRide, isOwn } = useOpenRide()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   return (
@@ -70,8 +69,6 @@ export default function MapPage() {
           </section>
         </div>
       </main>
-
-      {selectedRide && <RideDetailsModal ride={selectedRide} onClose={closeRide} />}
     </div>
   )
 }

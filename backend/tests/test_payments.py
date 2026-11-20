@@ -21,6 +21,8 @@ from tests.helpers import (
 )
 from util import stripe_api
 
+pytestmark = pytest.mark.regression
+
 
 async def accepted_seat(price_cents: int | None = 500) -> tuple[str, str, str]:
     """A rider whose request the driver accepted. Returns (driver id, rider id, request id)."""

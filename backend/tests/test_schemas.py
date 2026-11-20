@@ -1,6 +1,10 @@
 import re
 
+import pytest
+
 from schemas import EMAIL_REGEX
+
+pytestmark = pytest.mark.regression
 
 
 def test_match_email_regex():

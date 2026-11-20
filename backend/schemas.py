@@ -49,10 +49,13 @@ class RideOut(BaseModel):
 
     id: str
     driver_id: str
+    driver_username: str
     origin_point: GeoJSONPoint
     departure_time: datetime
     seats: int
     price_cents: int | None
+    # seats not yet taken by accepted riders, whether they've paid or not
+    seats_left: int
 
 
 class CreateRideBody(BaseModel):
@@ -83,6 +86,13 @@ class RideRequestOut(BaseModel):
     ride_id: str
     rider_id: str
     status: Literal["pending", "accepted", "declined"]
+    detour_point: GeoJSONPoint | None = None
+
+
+class CreateRideRequestBody(BaseModel):
+    """Request body for creating a ride request"""
+
+    detour_point: GeoJSONPoint
 
 
 class RideRegistrationOut(BaseModel):
@@ -92,6 +102,22 @@ class RideRegistrationOut(BaseModel):
 
     ride_id: str
     rider_id: str
+
+
+class Detour(BaseModel):
+    """information about a single detour"""
+
+    owner_id: str
+    detour_point: GeoJSONPoint
+
+
+class RideDetoursOut(BaseModel):
+    """information about detours associated with a ride"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ride_id: str
+    detours: list[Detour]
 
 
 class RideRequestDetailsOut(RideRequestOut):
@@ -199,3 +225,39 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
     user: UserResponse
+
+
+class CreatePersonalChatRequest(BaseModel):
+    rider_id: str
+
+
+class ChatParticipant(BaseModel):
+    id: str
+    username: str
+
+
+class Chat(BaseModel):
+    id: str
+    ride_id: str
+    type: str
+    participant_ids: list[str]
+    participants: list[ChatParticipant]
+
+
+class SendMessageRequest(BaseModel):
+    content: str
+
+
+class ChatMessage(BaseModel):
+    id: str
+    chat_id: str
+    sender_id: str
+    content: str
+    created_at: str
+
+
+class MessagePage(BaseModel):
+    """A page of messages and an optional cursor for older messages."""
+
+    messages: list[ChatMessage]
+    next_cursor: str | None

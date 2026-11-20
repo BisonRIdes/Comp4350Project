@@ -1,14 +1,16 @@
-from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideRegistration, RideRequest, User
-from schemas import CreateRideBody, RideOut, UpdateRideBody
+from models import Ride, RideDetour, RideRegistration, RideRequest, User
+from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
 from util.auth import CurrentUser, get_current_user
+from util.constants import U_OF_M_COORD
+from util.ride_utils import get_distance
+from util.seats import count_accepted
 
 # every rides route needs a logged-in student
 router = APIRouter(prefix="/rides", tags=["rides"], dependencies=[Depends(get_current_user)])
@@ -19,36 +21,53 @@ def check_owner(ride: Ride, user: User) -> None:
         raise HTTPException(status_code=403, detail="You can only change your own rides")
 
 
-# how many riders the driver has already accepted on this ride
-async def count_accepted(ride_id: str, db: AsyncSession) -> int:
-    return await db.scalar(
-        select(func.count())
-        .select_from(RideRegistration)
-        .where(RideRegistration.ride_id == ride_id)
+# a ride for the API, with who drives it and how many seats accepted riders haven't taken yet
+def to_ride_out(ride: Ride, accepted: int, driver_username: str) -> RideOut:
+    return RideOut(
+        id=ride.id,
+        driver_id=ride.driver_id,
+        driver_username=driver_username,
+        origin_point=ride.origin_point,
+        departure_time=ride.departure_time,
+        seats=ride.seats,
+        price_cents=ride.price_cents,
+        seats_left=max(ride.seats - accepted, 0),
     )
 
 
 # return a list of all rides for populating the frontend
 @router.get("", response_model=list[RideOut])
-async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> Sequence[Ride]:
-    result = await db.execute(select(Ride).order_by(Ride.departure_time))
-    return result.scalars().all()
+async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> list[RideOut]:
+    # accepted riders per ride and each driver's name, in the same query instead of once per ride
+    accepted = (
+        select(RideRegistration.ride_id, func.count().label("accepted"))
+        .group_by(RideRegistration.ride_id)
+        .subquery()
+    )
+    result = await db.execute(
+        select(Ride, func.coalesce(accepted.c.accepted, 0), User.username)
+        .join(User, User.id == Ride.driver_id)
+        .outerjoin(accepted, accepted.c.ride_id == Ride.id)
+        .order_by(Ride.departure_time)
+    )
+    return [to_ride_out(ride, count, driver) for ride, count, driver in result.all()]
 
 
 # get one ride, e.g. for the ride details page
 @router.get("/{ride_id}", response_model=RideOut)
-async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> Ride:
+async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -> RideOut:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
-    return ride
+    driver = await db.get(User, ride.driver_id)
+    return to_ride_out(ride, await count_accepted(ride_id, db), driver.username)
 
 
 # driver can post a ride
 @router.post("", status_code=201, response_model=RideOut)
 async def create_ride(
     body: CreateRideBody, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
-) -> Ride:
+) -> RideOut:
     if not user.is_driver:
         raise HTTPException(status_code=403, detail="User is not a driver")
 
@@ -62,7 +81,8 @@ async def create_ride(
     db.add(ride)
     await db.commit()
     await db.refresh(ride)
-    return ride
+    # a new ride has no accepted riders yet, and the logged-in user is its driver
+    return to_ride_out(ride, 0, user.username)
 
 
 # driver can edit a ride (partial update)
@@ -72,7 +92,7 @@ async def edit_ride(
     body: UpdateRideBody,
     user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> Ride:
+) -> RideOut:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -92,7 +112,8 @@ async def edit_ride(
 
     await db.commit()
     await db.refresh(ride)
-    return ride
+    # check_owner above means the logged-in user is the driver
+    return to_ride_out(ride, await count_accepted(ride_id, db), user.username)
 
 
 # driver can delete a ride
@@ -111,3 +132,37 @@ async def delete_ride(
     await db.execute(delete(RideRequest).where(RideRequest.ride_id == ride_id))
     await db.delete(ride)
     await db.commit()
+
+
+# get all detours for a specific ride with detour points ordered from furthest away from U of M to closest
+@router.get("/{ride_id}/detours", status_code=200)
+async def get_detours(
+    ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> RideDetoursOut:
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    registered_for = await db.scalar(
+        select(
+            exists().where(
+                and_(RideRegistration.ride_id == ride_id, RideRegistration.rider_id == user.id)
+            )
+        )
+    )
+    if not registered_for and ride.driver_id != user.id:
+        raise HTTPException(status_code=403, detail="not authorized to see detours for this ride")
+
+    # get all detours associated with this ride
+    db_detours = await db.execute(select(RideDetour).where(RideDetour.ride_id == ride_id))
+
+    detours = [
+        {"owner_id": d.owner_id, "detour_point": GeoJSONPoint.model_validate(d.detour_point)}
+        for d in db_detours.scalars().all()
+    ]
+
+    # sort based on distance from ride origin
+    uni = GeoJSONPoint.model_validate(U_OF_M_COORD)
+    detours.sort(key=lambda detour: get_distance(uni, detour["detour_point"]), reverse=True)
+
+    return RideDetoursOut(ride_id=ride.id, detours=detours)
