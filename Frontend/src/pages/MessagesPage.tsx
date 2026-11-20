@@ -270,6 +270,7 @@ export default function MessagesPage() {
                       <Link to={`/messages/${encodeURIComponent(chat.id)}`} aria-current={chat.id === chatId ? 'page' : undefined}
                         className={`block rounded-2xl p-4 ring-1 ring-black/10 hover:bg-mist ${chat.id === chatId ? 'bg-mist' : ''}`}>
                         <span className="block font-medium">{chat.type === 'group' ? 'Ride group' : 'Personal chat'}</span>
+                        <span className="block break-all text-sm text-subtle">Ride</span>
                         {chat.type === 'personal' && (
                           <span className="block break-all text-sm text-subtle">
                             {chat.participants.find((participant) => participant.id !== user?.id)?.username ?? 'Unknown participant'}
