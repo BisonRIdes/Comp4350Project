@@ -12,6 +12,7 @@ On every pull request, including PRs into `dev` and `main`.
 ### Which tools or frameworks execute it?
 - **GitHub Actions** runs the suite: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 - **pytest** is the test framework: [`backend/tests/`](../backend/tests/)
+
 ### Approximately how long does the suite take?
 Under one minute, so we can run it on every PR.
 
@@ -19,4 +20,4 @@ Under one minute, so we can run it on every PR.
 The PR shows a failing check (red ✗), which signals that the change should be fixed before merging.
 
 ### Where can the instructor see evidence from a recent run?
-TODO: link a recent CI run near the end of the sprint.
+A recent CI run is available here: [GitHub Actions run #44649239590](https://github.com/BisonRIdes/Comp4350Project/actions/runs/44649239590)
