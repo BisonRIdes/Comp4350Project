@@ -11,6 +11,7 @@ from util import stripe_api
 
 pytestmark = pytest.mark.regression
 
+
 @pytest.fixture
 def client(monkeypatch):
     """The StripeClient our helpers create, with every Stripe call replaced."""
