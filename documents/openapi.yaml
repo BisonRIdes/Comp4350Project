@@ -256,7 +256,16 @@ paths:
       tags: [Requests]
       operationId: createRideRequest
       summary: The logged-in rider asks to join a ride
-      description: No request body. The rider is whoever is logged in.
+      description: The rider is whoever is logged in. The body says where they want to be picked up.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [detour_point]
+              properties:
+                detour_point: { $ref: "#/components/schemas/GeoJSONPoint" }
       responses:
         "201":
           description: Request created with status `pending`
@@ -280,6 +289,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }      
 
   /rides/{ride_id}/detours:
   get:

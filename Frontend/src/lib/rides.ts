@@ -3,6 +3,8 @@ import type { Ride } from '../components/RideCard'
 
 // Every ride goes to campus for now.
 export const DESTINATION = 'University of Manitoba'
+// Fort Garry campus, GeoJSON order: [longitude, latitude].
+export const DESTINATION_POINT: [number, number] = [-97.1366, 49.8075]
 
 // What GET /rides returns (RideOut).
 export type RideOut = {
@@ -14,6 +16,8 @@ export type RideOut = {
   seats_left: number // seats not yet taken by accepted riders
   origin_point?: { type: string; coordinates: [number, number] }
   origin_label?: string
+  // Not returned yet; every ride goes to campus (DESTINATION_POINT) until it is.
+  destination_point?: { type: string; coordinates: [number, number] }
   destination_label?: string
   price_cents?: number | null // null for rides posted before prices were saved
 }
@@ -39,6 +43,8 @@ export function toRide(raw: RideOut): Ride {
     driver: raw.driver_username,
     from: raw.origin_label,
     to: raw.destination_label ?? DESTINATION,
+    origin: raw.origin_point?.coordinates,
+    destination: raw.destination_point?.coordinates ?? DESTINATION_POINT,
     departure: raw.departure_time,
     price: raw.price_cents == null ? undefined : raw.price_cents / 100,
     seatsLeft: raw.seats_left,
@@ -68,6 +74,9 @@ export function fetchRide(id: string): Promise<Response> {
 // The fields PATCH /rides/{id} accepts (UpdateRideBody). Send only the ones that changed.
 export type RideChanges = {
   origin_point?: { type: 'Point'; coordinates: [number, number] }
+  // Not saved by the backend yet and dropped before the "no fields" check, so only send it
+  // together with origin_point; on its own the PATCH would fail with 422 (see README TODO).
+  origin_label?: string
   departure_time?: string
   seats?: number
 }

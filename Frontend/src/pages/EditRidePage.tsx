@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { GroupChatButton } from '../components/GroupChatButton'
 import { Icon } from '../components/Icon'
@@ -9,7 +10,8 @@ import { TextField } from '../components/TextField'
 import { errorNotice, headingClass, primaryButton } from '../styles'
 import { readError } from '../lib/api'
 import { getUser } from '../lib/auth'
-import { geocode, reverseGeocode } from '../lib/geocode'
+import { reverseGeocode } from '../lib/geocode'
+import type { Place } from '../lib/places'
 import { deleteRide, DESTINATION, fetchRide, toLocalInputValue, updateRide, type RideChanges, type RideOut } from '../lib/rides'
 
 type Errors = { from?: string; departure?: string }
@@ -25,6 +27,8 @@ export default function EditRidePage() {
   const [original, setOriginal] = useState<RideOut | null>(null)
   const [originalFrom, setOriginalFrom] = useState('')
   const [from, setFrom] = useState('')
+  // A new start picked from the suggestions; null means keep the ride's current start.
+  const [place, setPlace] = useState<Place | null>(null)
   const [departure, setDeparture] = useState('')
   const [seats, setSeats] = useState(1)
 
@@ -81,7 +85,11 @@ export default function EditRidePage() {
 
     const nextErrors: Errors = {}
     // If the place name couldn't be looked up, an empty box just means "keep the same start".
-    if (!from.trim() && originalFrom) nextErrors.from = 'Enter where you are leaving from.'
+    if (!from.trim()) {
+      if (originalFrom) nextErrors.from = 'Enter where you are leaving from.'
+    } else if (from.trim() !== originalFrom && !place) {
+      nextErrors.from = 'Pick an address from the list so riders know exactly where to meet you.'
+    }
     if (!departure) nextErrors.departure = 'Choose when you are leaving.'
     else if (new Date(departure) <= new Date()) nextErrors.departure = 'Pick a time in the future.'
     setErrors(nextErrors)
@@ -92,13 +100,9 @@ export default function EditRidePage() {
     try {
       // PATCH only changes what we send, so leave out anything the driver didn't touch.
       const changes: RideChanges = {}
-      if (from.trim() && from.trim() !== originalFrom) {
-        const coordinates = await geocode(from.trim())
-        if (!coordinates) {
-          setErrors({ from: 'We couldn\'t find that place in Manitoba. Try adding the town, e.g. "Main St, Steinbach".' })
-          return
-        }
-        changes.origin_point = { type: 'Point', coordinates }
+      if (place) {
+        changes.origin_point = { type: 'Point', coordinates: place.coordinates }
+        changes.origin_label = place.label
       }
       const newDeparture = new Date(departure).toISOString()
       if (newDeparture !== new Date(original.departure_time).toISOString()) changes.departure_time = newDeparture
@@ -182,13 +186,20 @@ export default function EditRidePage() {
           <GroupChatButton rideId={rideId} />
           <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-8">
             <div className="space-y-4">
-              <TextField
+              <AddressInput
                 label="Leaving from"
-                name="from"
-                placeholder="Address, town or landmark"
+                placeholder="Start typing an address, town or landmark"
                 value={from}
-                onChange={(event) => {
-                  setFrom(event.target.value)
+                // The new start if one was picked, otherwise where the ride starts now.
+                selectedPoint={place?.coordinates ?? original.origin_point?.coordinates}
+                onChange={(text) => {
+                  setFrom(text)
+                  setPlace(null)
+                  clearError('from')
+                }}
+                onSelect={(picked) => {
+                  setFrom(picked.label)
+                  setPlace(picked)
                   clearError('from')
                 }}
                 error={errors.from}

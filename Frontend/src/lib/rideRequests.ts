@@ -25,9 +25,15 @@ export type Updates = {
   request_updates: RideRequestDetails[]
 }
 
-// The logged-in user asks for a seat on a ride.
-export async function requestRide(rideId: string): Promise<RideRequest> {
-  const response = await apiFetch(`/rides/${rideId}/requests`, { method: 'POST' })
+// A GeoJSON point. Coordinates are [longitude, latitude].
+export type GeoJSONPoint = { type: 'Point'; coordinates: [number, number] }
+
+// The logged-in user asks for a seat on a ride, picked up at detourPoint.
+export async function requestRide(rideId: string, detourPoint: GeoJSONPoint): Promise<RideRequest> {
+  const response = await apiFetch(`/rides/${rideId}/requests`, {
+    method: 'POST',
+    body: JSON.stringify({ detour_point: detourPoint }),
+  })
   await throwIfNotOk(response)
   return response.json()
 }

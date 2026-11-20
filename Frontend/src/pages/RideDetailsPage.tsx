@@ -3,6 +3,7 @@ import { DashboardNavbar } from '../components/DashboardNavbar'
 import { GroupChatButton } from '../components/GroupChatButton'
 import { Icon } from '../components/Icon'
 import { icons } from '../components/icons'
+import { LazyRideMap } from '../components/LazyRideMap'
 import type { Ride } from '../components/RideCard'
 import { RequestStatusBadge } from '../components/RequestStatusBadge'
 import { RequestStatus } from '../constants'
@@ -12,6 +13,8 @@ import { useRide } from '../hooks/useRide'
 import { getUser } from '../lib/auth'
 import { formatDeparture, routeLabel } from '../lib/rides'
 import { errorNotice, headingClass, primaryButton } from '../styles'
+import { useState } from 'react'
+import { TextField } from '../components/TextField'
 
 // Shown instead of the button once the rider has asked for a seat.
 const statusMessages: Record<RequestStatus, string> = {
@@ -22,7 +25,7 @@ const statusMessages: Record<RequestStatus, string> = {
 
 function RideSummary({ ride }: { ride: Ride }) {
   return (
-    <div className="mt-10 rounded-3xl bg-mist p-6">
+    <div className="mt-6 rounded-3xl bg-mist p-6">
       <p className="text-[17px] font-semibold tracking-tight">{routeLabel(ride)}</p>
       <p className="mt-0.5 text-sm text-subtle">{formatDeparture(ride.departure)}</p>
       {ride.driver && <p className="mt-0.5 text-sm text-subtle">Driven by {ride.driver}</p>}
@@ -51,6 +54,7 @@ function OwnRide({ rideId }: { rideId: string }) {
 // requested, but a rider who already asked still sees their request.
 function RequestSeat({ rideId, full }: { rideId: string; full: boolean }) {
   const { status, loading, sending, error, request } = useMyRequestForRide(rideId)
+  const [pickup, setPickup] = useState('')
 
   if (loading) return <div aria-label="Checking your requests" className="mt-8 h-12 animate-pulse rounded-full bg-mist" />
   if (status) {
@@ -73,7 +77,14 @@ function RequestSeat({ rideId, full }: { rideId: string; full: boolean }) {
   }
   return (
     <div className="mt-8 space-y-4">
-      <button type="button" onClick={request} disabled={sending} className={`${primaryButton} w-full disabled:opacity-60`}>
+      <TextField
+        label="Pick me up at"
+        name="pickup"
+        placeholder="Address, intersection or landmark"
+        value={pickup}
+        onChange={(event) => setPickup(event.target.value)}
+      />
+      <button type="button" onClick={() => request(pickup)} disabled={sending} className={`${primaryButton} w-full disabled:opacity-60`}>
         {sending ? 'Requesting…' : 'Request seat'}
         <Icon className="h-4 w-4">{icons.arrow}</Icon>
       </button>
@@ -85,6 +96,7 @@ function RequestSeat({ rideId, full }: { rideId: string; full: boolean }) {
     </div>
   )
 }
+
 
 // Opened by clicking another driver's ride on the dashboard: /rides/:rideId
 export default function RideDetailsPage() {
@@ -122,6 +134,10 @@ export default function RideDetailsPage() {
           </div>
         ) : (
           <>
+            {/* Where the ride starts, campus, and the straight line between them. */}
+            <div className="mt-10 h-64 overflow-hidden rounded-3xl bg-mist ring-1 ring-black/10 sm:h-80">
+              <LazyRideMap rides={[{ ...ride, from: from ?? ride.from }]} />
+            </div>
             <RideSummary ride={{ ...ride, from: from ?? ride.from }} />
             {isOwn ? <OwnRide rideId={ride.id} /> : <RequestSeat rideId={ride.id} full={ride.seatsLeft === 0} />}
           </>
