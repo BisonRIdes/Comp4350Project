@@ -215,8 +215,8 @@ TODO
 
 The biggest improvement since Sprint 1 is the ride request workflow between riders and drivers. In Sprint 1 the backend supported requests, but the frontend had no screens for them and requests only carried IDs. Now a rider can request a seat, the driver is notified and accepts or declines, and the rider is notified and can pay, cancel or leave, all without reloading. The key decision was to let the backend own the facts: request details (names, ride time and place), seats left and the driver's name are computed in the backend, and full rides are rejected there, so every screen shows the same, correct data. On the frontend, a single shared poll feeds the notification badge, the Notifications page and My seats, and a layered structure.
 
-**Shrey** (prompt: TODO)
-TODO
+**Shreshth** (What technical decision or implementation improved most since Sprint 1, and why?)\
+The biggest improvement was to add auto complete for address and adding map to select a pickup/start location. In Sprint 1, Post Ride sent whatever text the driver typed to Nominatim and took the first Manitoba match. So "Regent" or a misspelled street could quietly save the wrong coordinates, and the driver never saw where it landed. In sprint 2, a user when starts entering an address a suggestion list is shown from where they can pick an address or select the location on map or if they allow location access we can check their live locaation. Adding maps also meant adding Leaflet, which is a large library, so we lazy-load it. The map code is a separate chunk that the browser only downloads the first time a map is shown, with a grey placeholder until it arrives. 
 
 **Work we are proud of**
 
