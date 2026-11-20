@@ -6,7 +6,7 @@
 | --- | --- |
 | Issues / sprint board | [GitHub Issues](https://github.com/BisonRIdes/Comp4350Project/issues) |
 | CI/CD workflow | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ([runs](https://github.com/BisonRIdes/Comp4350Project/actions/workflows/ci.yml)) |
-| Recent CI run on `dev` | TODO: link the latest green run on `dev` |
+| Recent CI run | [GitHub Actions run #44649239590](https://github.com/BisonRIdes/Comp4350Project/actions/runs/44649239590) |
 | Code quality and coverage | [SonarCloud](https://sonarcloud.io/project/overview?id=BisonRIdes_Comp4350Project) |
 | Regression testing notes | [`documents/tests.md`](tests.md) |
 | API spec | [`documents/openapi.yaml`](openapi.yaml) |
@@ -15,7 +15,7 @@
 | Architecture | [Architecture section below](#api-and-architecture) |
 | Backend setup | [`backend/README.md`](../backend/README.md) |
 | Frontend setup | [`Frontend/README.md`](../Frontend/README.md) |
-| Cross-team review we wrote | TODO: link |
+| Cross-team review we wrote | [`Cross-Team Testing #216`](https://github.com/popcorn9499/future-problems/issues/216) |
 
 ## Sprint Summary
 
@@ -30,9 +30,9 @@ In Sprint 1 the full ride flow worked through the API, but most of it had no pag
 
 **New features.**
 
-- **Payments (Stripe, test mode).** Once a request is accepted, the rider pays for the seat by card. The card goes straight to Stripe. The seat is only marked paid when Stripe's webhook confirms it, and a receipt is emailed through Resend. Cancelling a paid seat refunds it in full ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)).
-- **Map and address search.** Rides show on a Leaflet map. The Map page lists upcoming rides next to a map. Address fields suggest real Manitoba addresses as you type (Photon), so a posted ride stores exact coordinates instead of a guess. Dashboard search can find rides that start within 5 km of a chosen address (issue #88).
-- **Detours.** A rider's request now carries the point where they want to be picked up. When the driver accepts, that point is saved as a detour on the ride. `GET /rides/{ride_id}/detours` returns a ride's pickup points ordered from furthest to closest to campus (issue #82).
+- **Payments (Stripe, test mode).** Once a request is accepted, the rider pays for the seat by card. The card goes straight to Stripe. The seat is only marked paid when Stripe's webhook confirms it, and a receipt is emailed through Resend. Cancelling a paid seat refunds it in full ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)). For details on how to use payment see our [Stripe Documentation](../backend/README.md#payments-stripe-test-mode). As it would be inappropriate to request the graders to insert real credit information to grade our project, we are using a Stripe exclusively in test mode. This is something that would need to be updated if we wanted to deploy this for profit.
+- **Map and address search.** Rides show on a  Leaflet map. The Map page lists upcoming rides next to a map. Address fields suggest real Manitoba addresses as you type (Photon), so a posted ride stores exact coordinates instead of a guess. Dashboard search can find rides that start within 5 km of a chosen address (issue #88). Further addresses can be added by clicking on a map instead of typing in the address [#89](https://github.com/BisonRIdes/Comp4350Project/pull/89).
+- **Detours (backend).** The backend functionality for handlind detours has been added. The frontend implementation for detours is not built yet.
 - **Chats (backend).** Riders and drivers on a ride can open a personal chat or a group chat for the ride and send and read messages (issue #76). The frontend for chats is not built yet.
 
 **Sprint 1 feedback.** Signup now has standard password rules, error messages stand out in colour, and the signup form has a clearer student email field ([#71](https://github.com/BisonRIdes/Comp4350Project/pull/71)).
@@ -43,25 +43,13 @@ The sprint board and closed issues remain the detailed record of completed work.
 
 ## Regression Testing
 
-Full notes: [`documents/tests.md`](tests.md)
-
-| Question | Answer |
-| --- | --- |
-| What runs | Every backend test in [`backend/tests/`](../backend/tests/). That is unit tests (schemas, models, tokens, the Stripe and email helpers) and integration tests that send real requests through FastAPI's `TestClient` to a Postgres database. About 170 tests in total. TODO: confirm the exact count from the CI run. |
-| How tests were selected | We run the full suite. It is fast enough to run on every change, and a smaller set would only save seconds while risking a missed bug. Each test file is tagged `@pytest.mark.regression` (marker defined in [`backend/pytest.ini`](../backend/pytest.ini)), so if the suite gets slow we can narrow regression runs by moving the tag instead of changing CI. |
-| When it runs | On every pull request into `dev` or `main`, and on every push to `dev` or `main`. |
-| Tools | GitHub Actions runs it. `pytest` with `pytest-asyncio` and `pytest-cov` executes it. `testcontainers` starts a throwaway `postgres:16-alpine` database for the run. Stripe and Resend are replaced with fakes, so tests never charge a card or send an email. |
-| How long it takes | TODO: fill in from the CI run. Roughly under a minute for the tests plus a few seconds to start the Postgres container. The whole `backend` job, including install and the SonarCloud scan, takes TODO minutes. |
-| What happens on failure | The `backend` check on the PR goes red and the PR shouldn't be merged until it is fixed. On a push to `dev`, a failing `backend` job also stops the deploy, because `deploy-backend` only runs after `backend`, `security` and `docker` pass. TODO: say whether branch protection makes the check required for merging. |
-| Evidence | Workflow: [`ci.yml`](../.github/workflows/ci.yml). Recent run: TODO link. |
-
-Why Postgres matters for regression: in Sprint 1 tests ran on SQLite while production ran on Postgres, so database differences could slip through. Running tests on the same database as production closes that gap.
+See: [`documents/tests.md`](tests.md)
 
 ## Testing Status and Gaps
 
-**Coverage evidence:** TODO: add a screenshot of the `pytest --cov` output from the CI run, or link the SonarCloud coverage page.
+**Coverage evidence:** Here is a coverage report: [report](https://github.com/BisonRIdes/Comp4350Project/actions/runs/44651807483/job/136008260992#step:8:34)
 
-**What the report shows.** TODO: add the overall line coverage number. Backend coverage stays high because each endpoint is still written with its tests in the same PR. The new code (payments, the Stripe wrapper, detours and chats) came with its own test files: [`test_payments.py`](../backend/tests/test_payments.py), [`test_stripe_api.py`](../backend/tests/test_stripe_api.py), [`test_chats.py`](../backend/tests/test_chats.py), plus new cases in [`test_rides.py`](../backend/tests/test_rides.py) and [`test_ride_requests.py`](../backend/tests/test_ride_requests.py). The number only covers the backend, so it says nothing about the frontend.
+**What the report shows.** Overall coverage is 98%. Backend coverage stays high because each endpoint is still written with its tests in the same PR. The new code (payments, the Stripe wrapper, detours and chats) came with its own test files: [`test_payments.py`](../backend/tests/test_payments.py), [`test_stripe_api.py`](../backend/tests/test_stripe_api.py), [`test_chats.py`](../backend/tests/test_chats.py), plus new cases in [`test_rides.py`](../backend/tests/test_rides.py) and [`test_ride_requests.py`](../backend/tests/test_ride_requests.py). The number only covers the backend, so it says nothing about the frontend.
 
 **Known gaps**
 
@@ -69,10 +57,7 @@ Why Postgres matters for regression: in Sprint 1 tests ran on SQLite while produ
 | --- | --- | --- |
 | **The frontend has no automated tests.** The request, notifications, edit ride, payment and map pages are only checked by lint and the TypeScript build. | Sprint 2 time went into getting the pages built and connected. | Add component tests for the request and payment pages before final. |
 | **Nothing tests the frontend and backend together.** If the backend changes what a request must contain, CI still passes as long as each side passes on its own. | Backend tests call the API directly. The frontend build doesn't call the API. | Add a few end to end tests for the main flow (post a ride, request it, accept, pay) or contract tests against `openapi.yaml`. |
-| **Real Stripe is never called in tests.** Tests use a `FakeStripe` and fake keys. | Tests must not depend on Stripe being up or move money. | Keep the fakes in CI. Check the full payment flow by hand on the live app with test cards before each demo. |
-| **Detour ordering is only lightly tested.** Tests check that pickup points come back in the right order, but the distance is a straight line on raw coordinates, not a road distance. | It is a first version of matching. Real routing (OpenRouteService) is not set up yet. | Revisit when routing is added. |
-| **Chats only have backend tests.** There is no chat UI yet, so nothing checks how messages show up for users. | Chat backend was built first. | Covered once the chat pages exist. |
-
+| **Real Stripe is never called in tests.** Tests use a `FakeStripe` and fake keys. | Tests must not depend on Stripe being up or move money. | Keep the fakes in CI. Check the full payment flow by hand on the live app with test cards before each demo.|
 ## CI / CD Status
 
 Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
@@ -90,7 +75,7 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 **Continuous deployment**
 
 - **Backend (Render).** Merging into `dev` runs the checks above, then `deploy-backend` tells Render to build and deploy that commit. Render's own auto-deploy is off, so nothing reaches Render without passing CI. The job is tied to a GitHub `render` environment, so each deploy shows in the repo's Deployments list with a link to the live `/docs`.
-- **Frontend (Vercel).** Vercel's Git integration builds and deploys the `Frontend` folder on every push. TODO: confirm which branch Vercel uses for production (`dev` or `main`). PRs get Vercel preview builds.
+- **Frontend (Vercel).** Vercel's Git integration builds and deploys the `Frontend` folder from `main` on every push.
 
 **How we know a deploy worked or failed**
 
@@ -115,7 +100,17 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 | API | https://bisonrides-api.onrender.com ([`/docs`](https://bisonrides-api.onrender.com/docs), other routes need the API key) |
 | Database | Supabase Postgres, through the session pooler |
 
-**Test accounts:** TODO: add a test driver and a test rider account (email and password) shared with the instructor, or say how they are shared.
+**Test accounts:** 
+
+As receiving the email for account verification may take a few minutes, here are the credentials for two pre-verified account. Both are registered as riders and drivers.
+
+Username: Grader\
+Email: Grader@myumanitoba.ca\
+Password: S3cret!P@ssword
+
+Username: Grader2\
+Email: Grader2@myumanitoba.ca\
+Password: S3cret!P@ssword2
 
 **Trying the main flow**
 
@@ -127,21 +122,19 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 **Notes**
 
 - Render's free tier sleeps when idle. The first request can take up to about a minute.
-- TODO: say whether new signups get their verification email on the live app, or still need the link from the Render logs.
+- Registration of a new account requires a link sent through an email. Receiving this email may take a few minutes.
 
 ## Cross-Team Testing
 
-**Our review of another team.** TODO: link our review of Team ___ (workflows tried, bugs found, what worked well, suggestions).
+**Our review of another team.** [issue #216](https://github.com/popcorn9499/future-problems/issues/216)
 
-**Feedback on our project.** We received feedback from Team ___ (TODO: link). We sorted each item as accepted, deferred or rejected.
+**Feedback on our project.** We received feedback from Team 5
 
 | Feedback | Category | Our reasoning |
 | --- | --- | --- |
-| TODO | Accepted | TODO: what we changed or opened an issue for (link the issue). |
-| TODO | Deferred | TODO: why it waits until final. |
-| TODO | Rejected | TODO: why we won't act on it. |
-
-At least two different categories are required.
+| invalid URLs show blank white page | Accepted | This is an oversight on our end, and we should resolve it. We will close the [issue](https://github.com/BisonRIdes/Comp4350Project/issues/96) created by team 5 as soon as we fix this. We have added this issue to sprint 3.|
+| some rides show no price | Accepted | This was due to rides not storing their price in iteration 1. We should add guardrails to prevent something like this happening again. We will close the [issue](https://github.com/BisonRIdes/Comp4350Project/issues/98) created by team 5 as soon as we fix this. We have added this issue to sprint 3.|
+| No way to reset a forgotten password | Deferred | This is another valid criticism, but we have decided that this is not as critical to our MVP as progressing with the route handling, and so we have intentionally decided to defer it for now. If we have time we will resolve this [issue](https://github.com/BisonRIdes/Comp4350Project/issues/97) as well. We have added this issue to the Stretch milestone.|
 
 ## API and Architecture
 
@@ -203,11 +196,11 @@ Changes since Sprint 1:
 
 **Individual contributions** (each member picks one prompt)
 
-**Prithvi** (What feedback from Sprint 1 did the team act on, and what changed as a result?)
+**Prithvi** (What feedback from Sprint 1 did the team act on, and what changed as a result?)\
 After the Sprint 1 demo we were told signup only required 8 characters for a password, error messages were easy to miss, and drivers had no way to get to their own rides from the dashboard. We added standard password rules on signup, made error messages stand out in colour ([#71](https://github.com/BisonRIdes/Comp4350Project/pull/71)), and kept a driver's own rides in the list so clicking one opens the edit page ([#84](https://github.com/BisonRIdes/Comp4350Project/pull/84)). Building the edit page also made us decide a rule we had left open. The backend now blocks lowering a ride's seats below the number of riders already accepted, so an edit can't silently push someone off a ride.
 
-**Alon** (prompt: TODO)
-TODO
+**Alon** (prompt: What is the most important technical risk or uncertainty going into the final iteration?)\
+I am uncertain if we decided on the right platform to deploy our backend onto. The Render resource limits on the free plan are very low, and as our backend has grown I am becoming concerned that this will become very apparent as our backend has grown and we begin load testing it.
 
 **Raj** (prompt: TODO)
 TODO
@@ -226,20 +219,19 @@ TODO
 
 **Work we are proud of**
 
-- **Stripe payments ([#75](https://github.com/BisonRIdes/Comp4350Project/pull/75)).** Payments are easy to get wrong. A seat is only marked paid when Stripe's signed webhook says so, not when the browser says so. Card details never touch our servers. Cancelling refunds the rider. All of it is tested against a fake Stripe, so CI never depends on Stripe being up.
+- **Leaflet Embedded Map ([#89](https://github.com/BisonRIdes/Comp4350Project/pull/89)).** Using the map for viewing and selecting rides was a core feature from the initial design discussions, so getting this done in this sprint was a huge milestone and is our most visible feature.
 - **Testing on real Postgres ([#79](https://github.com/BisonRIdes/Comp4350Project/pull/79)).** Sprint 1's biggest testing gap was that tests used SQLite while production used Postgres. Each test run now starts a throwaway Postgres container, so the whole regression suite runs against the same database we deploy on.
 
 ## Known Issues and Risks for Final
 
 - **No frontend or end to end tests.** This is the biggest risk. Most new Sprint 2 work is in the frontend, and a change to an API contract can break a page without failing CI.
 - **No database migrations.** The app only creates missing tables. New columns (for example `detour_point` on ride requests) need a manual `ALTER TABLE` on Supabase. This gets riskier as the schema grows.
-- **Ride start addresses aren't saved.** The frontend sends `origin_label`, but the backend ignores it, so ride cards look the place name up again in each browser. Steps to fix are in [`Frontend/README.md`](../Frontend/README.md).
 - **Rides can only go to campus.** There is no destination field yet. The frontend assumes every ride ends at Fort Garry.
-- **Detour matching is basic.** Pickup points are ordered by straight-line distance, not by real driving routes.
+- **Detour matching is basic.** The backend is done, but users can't make use of detours yet.
 - **Chats have no UI.** The backend is done, but users can't chat yet.
 - **Deleting a ride with accepted riders** still returns `409`. The final rule (cancel and email riders, or a cancelled status) is still open.
-- **`main` is behind `dev`.** All work is merged into `dev` and deploys from there. We plan to promote to `main` for the final release.
-- **Little logging.** Errors on the live API are hard to trace beyond Render's request log.
+- **`main` is behind `dev`.** All work is merged into `dev` and render deploys from there. This has been convenient while developing, but warants two separate environments to be more complete.
+- **Little logging.** Errors on the live API are hard to trace beyond Render's request log, and should receive more comprehensive logging.
 - **Render free tier** sleeps when idle, which also delays Stripe webhooks until it wakes (Stripe retries).
 
 Docker Hub publishing, profiling, load testing and deployment hardening are planned for the final iteration.
