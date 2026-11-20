@@ -779,7 +779,7 @@ components:
       type: object
       required: [content]
       properties:
-        content: { type: string, minLength: 1, maxLengh: 512, example: "I'll be there in 5 minutes." }
+        content: { type: string, minLength: 1, maxLength: 512, example: "I'll be there in 5 minutes." }
 
     ChatMessage:
       type: object
