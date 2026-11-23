@@ -172,3 +172,138 @@ async def test_me_deleted_user():
     response = client.get("/users/me", headers=auth("gone"))
 
     assert response.status_code == 401
+
+
+# editing the current user
+
+
+async def test_update_me_username():
+    user_id = await make_user("alice")
+
+    response = client.patch("/users/me", json={"username": "alicia"}, headers=auth(user_id))
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "alicia"
+    assert client.get("/users/me", headers=auth(user_id)).json()["username"] == "alicia"
+
+
+async def test_update_me_become_driver():
+    user_id = await make_user("alice")
+
+    response = client.patch("/users/me", json={"is_driver": True}, headers=auth(user_id))
+
+    assert response.status_code == 200
+    assert response.json()["is_driver"] is True
+    # other fields stay the same
+    assert response.json()["username"] == "alice"
+
+
+async def test_update_me_stop_driving():
+    user_id = await make_user("alice", True)
+
+    response = client.patch("/users/me", json={"is_driver": False}, headers=auth(user_id))
+
+    assert response.status_code == 200
+    assert response.json()["is_driver"] is False
+
+
+async def test_update_me_keep_own_username():
+    user_id = await make_user("alice")
+
+    response = client.patch(
+        "/users/me", json={"username": "alice", "is_driver": True}, headers=auth(user_id)
+    )
+
+    assert response.status_code == 200
+
+
+async def test_update_me_username_taken():
+    user_id = await make_user("alice")
+    await make_user("bob")
+
+    response = client.patch("/users/me", json={"username": "bob"}, headers=auth(user_id))
+
+    assert response.status_code == 409
+    assert client.get("/users/me", headers=auth(user_id)).json()["username"] == "alice"
+
+
+async def test_update_me_username_taken_in_a_race(monkeypatch):
+    user_id = await make_user("alice")
+    await make_user("bob")
+    # the check finds no clash, like when someone else takes the name just after it runs
+    monkeypatch.setattr(AsyncSession, "scalar", AsyncMock(return_value=None))
+
+    response = client.patch("/users/me", json={"username": "bob"}, headers=auth(user_id))
+
+    assert response.status_code == 409
+
+
+async def test_update_me_change_password():
+    user_id = await make_user("alice", verified=True, password="Password123!")
+
+    response = client.patch(
+        "/users/me",
+        json={"current_password": "Password123!", "new_password": "NewPassword456?"},
+        headers=auth(user_id),
+    )
+
+    assert response.status_code == 200
+    login = {"email": "alice@myumanitoba.ca"}
+    assert client.post("/auth/login", json={**login, "password": "NewPassword456?"}).is_success
+    assert client.post("/auth/login", json={**login, "password": "Password123!"}).status_code == 401
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"current_password": "Wrong123!", "new_password": "NewPassword456?"},
+        {"new_password": "NewPassword456?"},
+    ],
+)
+async def test_update_me_change_password_needs_current_password(body):
+    user_id = await make_user("alice", verified=True, password="Password123!")
+
+    response = client.patch("/users/me", json=body, headers=auth(user_id))
+
+    assert response.status_code == 403
+    login = {"email": "alice@myumanitoba.ca", "password": "Password123!"}
+    assert client.post("/auth/login", json=login).is_success
+
+
+async def test_update_me_wrong_password_changes_nothing():
+    user_id = await make_user("alice", verified=True, password="Password123!")
+
+    response = client.patch(
+        "/users/me",
+        json={"username": "alicia", "current_password": "Wrong123!", "new_password": "New456?ab"},
+        headers=auth(user_id),
+    )
+
+    assert response.status_code == 403
+    assert client.get("/users/me", headers=auth(user_id)).json()["username"] == "alice"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"username": None},
+        # a current password alone doesn't change anything
+        {"current_password": "Password123!"},
+        {"username": "al"},
+        {"new_password": "weakpass"},
+        {"new_password": "Sh0rt!"},
+    ],
+)
+async def test_update_me_invalid(body):
+    user_id = await make_user("alice")
+
+    response = client.patch("/users/me", json=body, headers=auth(user_id))
+
+    assert response.status_code == 422
+
+
+async def test_update_me_not_logged_in():
+    response = client.patch("/users/me", json={"username": "alicia"})
+
+    assert response.status_code == 401

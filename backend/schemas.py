@@ -150,6 +150,21 @@ class PaymentOut(BaseModel):
     client_secret: str | None = None
 
 
+def check_strong_password(password: str) -> str:
+    """Raise a ValueError naming every rule the password is missing, or return it unchanged."""
+    # Each rule is (pattern the password must contain, what to call it in the error).
+    rules = [
+        (r"[A-Z]", "an uppercase letter"),
+        (r"[a-z]", "a lowercase letter"),
+        (r"[0-9]", "a number"),
+        (r"[^A-Za-z0-9]", "a symbol"),
+    ]
+    missing = [name for pattern, name in rules if not re.search(pattern, password)]
+    if missing:
+        raise ValueError(f"Password needs {', '.join(missing)}")
+    return password
+
+
 class CreateUserRequest(BaseModel):
     """Request body for creating a user account. Since account created cannot be driver by default,
     `is_driver` is defaulted to `False` on creation."""
@@ -176,17 +191,24 @@ class CreateUserRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def must_be_strong_password(cls, password: str) -> str:
-        # Each rule is (pattern the password must contain, what to call it in the error).
-        rules = [
-            (r"[A-Z]", "an uppercase letter"),
-            (r"[a-z]", "a lowercase letter"),
-            (r"[0-9]", "a number"),
-            (r"[^A-Za-z0-9]", "a symbol"),
-        ]
-        missing = [name for pattern, name in rules if not re.search(pattern, password)]
-        if missing:
-            raise ValueError(f"Password needs {', '.join(missing)}")
-        return password
+        return check_strong_password(password)
+
+
+class UpdateUserRequest(BaseModel):
+    """Request body for editing your own account. Only the fields sent are changed.
+    Changing the password also needs `current_password`."""
+
+    username: str | None = Field(default=None, min_length=3, max_length=USERNAME_LENGTH)
+    is_driver: bool | None = None
+    current_password: str | None = None
+    new_password: str | None = Field(
+        default=None, min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def must_be_strong_password(cls, password: str | None) -> str | None:
+        return None if password is None else check_strong_password(password)
 
 
 class VerifyEmailBody(BaseModel):
