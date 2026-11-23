@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { icons } from './icons'
+import { dateFormat, timeFormat } from '../lib/format'
 
 // Optional fields aren't returned by GET /rides yet; the card hides them when missing.
 export type Ride = {
@@ -8,6 +9,8 @@ export type Ride = {
   driverId: string
   from?: string
   to?: string
+  origin?: [number, number] // GeoJSON order: [longitude, latitude]
+  destination?: [number, number] // same order
   departure: string // ISO date string
   driver?: string
   rating?: number
@@ -16,34 +19,39 @@ export type Ride = {
   seatsLeft: number
 }
 
-const dateFormat = new Intl.DateTimeFormat('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })
-const timeFormat = new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit' })
-
 // One row in "Available rides": driver | route + time | car | price + seats.
 // isOwn marks the signed-in driver's own ride. onClick runs when the card is clicked.
 // footer goes inside the card under the ride, e.g. the rider's seat and its buttons. The ride part
 // is its own button because a button can't hold other buttons.
+// compact keeps the narrow phone layout at every width (for the list beside the map);
+// highlighted outlines the card, e.g. while its dot on the map is hovered.
 export function RideCard({
   ride,
   isOwn = false,
   onClick,
   footer,
+  compact = false,
+  highlighted = false,
 }: {
   ride: Ride
   isOwn?: boolean
   onClick?: () => void
   footer?: ReactNode
+  compact?: boolean
+  highlighted?: boolean
 }) {
   const departure = new Date(ride.departure)
   const driver = ride.driver ?? 'Driver'
   const route = ride.from && ride.to ? `${ride.from} → ${ride.to}` : `Ride on ${dateFormat.format(departure)}`
 
   return (
-    <div className="group rounded-3xl bg-white ring-1 ring-black/10 transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)]">
+    <div
+      className={`group rounded-3xl bg-white transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] ${highlighted ? 'ring-2 ring-ink' : 'ring-1 ring-black/10'}`}
+    >
       <button
         type="button"
         onClick={onClick}
-        className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5"
+        className={`grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink ${compact ? '' : 'sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5'}`}
       >
         <div className="flex flex-col items-center text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink">
@@ -64,10 +72,10 @@ export function RideCard({
           <p className="mt-0.5 text-sm text-subtle">
             {dateFormat.format(departure)} · {timeFormat.format(departure)}
           </p>
-          {ride.car && <p className="mt-0.5 text-sm text-subtle sm:hidden">{ride.car}</p>}
+          {ride.car && <p className={`mt-0.5 text-sm text-subtle ${compact ? '' : 'sm:hidden'}`}>{ride.car}</p>}
         </div>
 
-        <div className="hidden items-center gap-2 text-sm text-subtle sm:flex">
+        <div className={`hidden items-center gap-2 text-sm text-subtle ${compact ? '' : 'sm:flex'}`}>
           {ride.car && (
             <>
               <Icon className="h-4 w-4 shrink-0">{icons.car}</Icon>
@@ -83,7 +91,9 @@ export function RideCard({
               {ride.seatsLeft === 0 ? 'Full' : `${ride.seatsLeft} ${ride.seatsLeft === 1 ? 'seat' : 'seats'} left`}
             </p>
           </div>
-          <Icon className="hidden h-5 w-5 text-neutral-300 transition-[color,transform] duration-300 group-hover:translate-x-0.5 group-hover:text-ink sm:block">
+          <Icon
+            className={`hidden h-5 w-5 text-neutral-300 transition-[color,transform] duration-300 group-hover:translate-x-0.5 group-hover:text-ink ${compact ? '' : 'sm:block'}`}
+          >
             {icons.chevron}
           </Icon>
         </div>

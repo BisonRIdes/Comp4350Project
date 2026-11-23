@@ -2,11 +2,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Final
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-from util.constants import USERNAME_LENGTH
+from util.constants import MESSAGE_LENGTH, USERNAME_LENGTH
 
 user_id: Final = "users.id"
 
@@ -99,7 +99,7 @@ class MessageRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     chat_id: Mapped[str] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"))
     sender_id: Mapped[str] = mapped_column(ForeignKey(user_id))
-    content: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(String(MESSAGE_LENGTH))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

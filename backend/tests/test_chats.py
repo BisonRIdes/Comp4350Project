@@ -1,4 +1,6 @@
 import asyncio
+import random
+import string
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
@@ -20,6 +22,7 @@ from tests.helpers import (
     synchronize_session_commits,
 )
 from util.chat_utils import find_or_create
+from util.constants import MESSAGE_LENGTH
 
 
 async def test_create_personal_chat_and_reuse_existing_chat():
@@ -46,7 +49,7 @@ async def test_create_personal_chat_and_reuse_existing_chat():
     reused = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": rider_id},
-        headers=auth(driver_id),
+        headers=auth(rider_id),
     )
 
     assert reused.status_code == 200
@@ -65,8 +68,8 @@ async def test_registered_rider_can_create_private_chat_with_driver():
 
     response = client.post(
         f"/rides/{ride_id}/chats/personal",
-        json={"rider_id": rider_id},
-        headers=auth(driver_id),
+        json={},
+        headers=auth(rider_id),
     )
 
     assert response.status_code == 201
@@ -76,6 +79,24 @@ async def test_registered_rider_can_create_private_chat_with_driver():
         {"id": driver_id, "username": "driver"},
         {"id": rider_id, "username": "rider"},
     ]
+
+    reused = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": rider_id},
+        headers=auth(driver_id),
+    )
+    assert reused.status_code == 200
+    assert reused.json() == chat
+
+    sent = client.post(
+        f"/chats/{chat['id']}/messages",
+        json={"content": "Hello driver"},
+        headers=auth(rider_id),
+    )
+    received = client.get(f"/chats/{chat['id']}/messages", headers=auth(driver_id))
+    assert sent.status_code == 201
+    assert received.status_code == 200
+    assert received.json()["messages"][0]["id"] == sent.json()["id"]
 
     other_rider_chats = client.get("/chats", headers=auth(other_rider_id))
 
@@ -94,12 +115,12 @@ async def test_each_rider_gets_a_separate_personal_chat_with_driver():
     rider_response = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": rider_id},
-        headers=auth(driver_id),
+        headers=auth(rider_id),
     )
     other_rider_response = client.post(
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": other_rider_id},
-        headers=auth(driver_id),
+        headers=auth(other_rider_id),
     )
 
     assert rider_response.status_code == 201
@@ -195,6 +216,45 @@ async def test_create_personal_chat_rejects_driver_as_rider():
         f"/rides/{ride_id}/chats/personal",
         json={"rider_id": driver_id},
         headers=auth(driver_id),
+    )
+
+    assert response.status_code == 403
+
+
+async def test_registered_rider_cannot_create_chat_for_another_rider_or_driver():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    other_rider_id = await make_user("other")
+    outsider_id = await make_user("outsider")
+    ride_id = await make_ride(driver_id)
+    await make_registration(ride_id, rider_id)
+    await make_registration(ride_id, other_rider_id)
+
+    for target_id in (other_rider_id, driver_id):
+        response = client.post(
+            f"/rides/{ride_id}/chats/personal",
+            json={"rider_id": target_id},
+            headers=auth(rider_id),
+        )
+        assert response.status_code == 403
+
+    outsider_response = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": rider_id},
+        headers=auth(outsider_id),
+    )
+    assert outsider_response.status_code == 403
+
+
+async def test_unregistered_rider_cannot_create_personal_chat():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id)
+
+    response = client.post(
+        f"/rides/{ride_id}/chats/personal",
+        json={"rider_id": rider_id},
+        headers=auth(rider_id),
     )
 
     assert response.status_code == 403
@@ -359,6 +419,25 @@ async def test_send_chat_message_rejects_empty_content():
     response = client.post(
         f"/chats/{chat['id']}/messages",
         json={"content": ""},
+        headers=auth(rider_id),
+    )
+
+    assert response.status_code == 422
+
+
+async def test_send_chat_message_rejects_excess_message_limit():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id)
+    await make_registration(ride_id, rider_id)
+    chat = client.post(f"/rides/{ride_id}/chats/group", headers=auth(driver_id)).json()
+
+    characters = string.ascii_letters + string.digits
+    large_message = "".join(random.choices(characters, k=MESSAGE_LENGTH + 1))
+
+    response = client.post(
+        f"/chats/{chat['id']}/messages",
+        json={"content": large_message},
         headers=auth(rider_id),
     )
 

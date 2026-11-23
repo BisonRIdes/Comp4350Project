@@ -558,10 +558,11 @@ paths:
       operationId: createPersonalChat
       summary: Create or find a private chat for a ride
       description: |
-        The ride's driver or the specified registered rider may initiate this
-        request. If a rider initiates it, rider_id must be their own ID. The
-        participants are the ride's driver and the specified registered rider.
-        Returns the existing chat if one already exists for this ride and rider.
+        The ride's driver or a registered rider may initiate this request. A
+        rider may omit rider_id; their identity is taken from the login token.
+        The driver must specify the registered rider_id. The participants are
+        the ride's driver and the specified registered rider. Returns the
+        existing chat if one already exists for this ride and rider.
       requestBody:
         required: true
         content:
@@ -747,9 +748,8 @@ components:
   schemas:
     CreatePersonalChatRequest:
       type: object
-      required: [rider_id]
       properties:
-        rider_id: { type: string, format: uuid, description: "Registered rider to chat with; if the caller is a rider, this must be their own ID" }
+        rider_id: { type: string, format: uuid, description: "Registered rider to chat with; required for drivers and inferred from the login token for riders" }
 
     Chat:
       type: object
@@ -784,7 +784,7 @@ components:
       type: object
       required: [content]
       properties:
-        content: { type: string, minLength: 1, example: "I'll be there in 5 minutes." }
+        content: { type: string, minLength: 1, maxLength: 512, example: "I'll be there in 5 minutes." }
 
     ChatMessage:
       type: object

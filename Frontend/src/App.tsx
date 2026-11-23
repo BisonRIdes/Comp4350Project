@@ -13,6 +13,7 @@ import EditRidePage from './pages/EditRidePage'
 import RideDetailsPage from './pages/RideDetailsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import HistoryPage from './pages/HistoryPage'
+import MessagesPage from './pages/MessagesPage'
 import { GuestOnly, RequireAuth } from './components/RouteGuards'
 import { UpdatesProvider } from './components/UpdatesProvider'
 
@@ -45,6 +46,8 @@ function App() {
           <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/history" element={<RequireAuth><HistoryPage /></RequireAuth>} />
+          <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
+          <Route path="/messages/:chatId" element={<RequireAuth><MessagesPage /></RequireAuth>} />
           <Route path="/requests/:requestId/pay" element={<RequireAuth><PaymentPage /></RequireAuth>} />
         </Routes>
       </UpdatesProvider>

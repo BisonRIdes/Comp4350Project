@@ -19,6 +19,9 @@ U_OF_M_COORD = {"type": "Point", "coordinates": [-97.14, 49.81]}
 # Stripe's smallest card payment in Canadian dollars is $0.50, so a seat can't cost less.
 MIN_PRICE_CENTS: Final = 50
 
+# Message limit length allowed in chat messages
+MESSAGE_LENGTH: Final = 512
+
 # Failed logins allowed for one email before /auth/login stops checking passwords for a while.
 MAX_FAILED_LOGINS: Final = 5
 FAILED_LOGIN_WINDOW_SECONDS: Final = 15 * 60
