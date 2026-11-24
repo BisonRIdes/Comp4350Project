@@ -242,4 +242,3 @@ async def test_login_lock_holds_for_parallel_guesses():
     codes = await asyncio.gather(*(guess() for _ in range(MAX_FAILED_LOGINS * 3)))
 
     assert codes.count(401) == MAX_FAILED_LOGINS
-    
