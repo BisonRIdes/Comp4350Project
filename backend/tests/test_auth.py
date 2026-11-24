@@ -219,3 +219,27 @@ async def test_resend_verification_unknown_email_looks_the_same(send):
 
     assert response.status_code == 204
     send.assert_not_awaited()
+
+
+async def test_login_lock_holds_for_parallel_guesses():
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from routers.auth import login
+    from schemas import LoginBody
+
+    await make_user("alice", verified=True, password="password123")
+    body = LoginBody(email="alice@myumanitoba.ca", password="wrong-password")
+
+    async def guess():
+        async with SessionLocal() as db:
+            try:
+                await login(body, db)
+            except HTTPException as e:
+                return e.status_code
+
+    codes = await asyncio.gather(*(guess() for _ in range(MAX_FAILED_LOGINS * 3)))
+
+    assert codes.count(401) == MAX_FAILED_LOGINS
+    

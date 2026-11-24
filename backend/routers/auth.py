@@ -36,11 +36,13 @@ async def login(body: LoginBody, db: Annotated[AsyncSession, Depends(get_db)]) -
             status_code=429, detail="Too many failed logins. Try again in 15 minutes."
         )
 
+    # counted before any await, so parallel guesses can't all slip past the check
+    record_failed_login(email)
+
     user = await db.scalar(select(User).where(User.email == email))
     stored_hash = user.password_hash if user else NO_ACCOUNT_HASH
     password_ok = await verify_password(body.password, stored_hash)
     if user is None or not password_ok:
-        record_failed_login(email)
         raise HTTPException(status_code=401, detail="Wrong email or password")
     clear_failed_logins(email)
     if not user.is_verified:
