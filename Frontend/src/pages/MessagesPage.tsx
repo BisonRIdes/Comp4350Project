@@ -6,7 +6,7 @@ import { getUser } from '../lib/auth'
 import { createPersonalChat, fetchChats, fetchMessages, sendMessage, type Chat, type ChatMessage } from '../lib/chats'
 import { errorNotice, headingClass, inputClass, primaryButton } from '../styles'
 
-const refreshInterval = 15_000
+const refreshInterval = 1_000
 
 function messageError(error: unknown) {
   if (error instanceof ApiError) {
@@ -81,10 +81,17 @@ function ChatPanel({ chat, userId }: { chat: Chat; userId: string }) {
     }
 
     void refresh()
-    const timer = window.setInterval(refresh, refreshInterval)
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void refresh()
+    }, refreshInterval)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) void refresh()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       active = false
       window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [chat.id, attempt])
 
