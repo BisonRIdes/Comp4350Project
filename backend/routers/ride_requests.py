@@ -177,11 +177,7 @@ async def cancel_ride_request(
     payment = await db.get(Payment, request_id)
     if payment is not None:
         # money first: if Stripe can't refund right now, the rider keeps the seat and can retry
-        if payment.status == "paid":
-            await stripe_api.refund_payment(payment.stripe_payment_id)
-        else:
-            # so a payment form still open in another tab can't charge them later
-            await stripe_api.cancel_payment(payment.stripe_payment_id)
+        await stripe_api.give_back(payment.stripe_payment_id, paid=payment.status == "paid")
         await db.execute(delete(Payment).where(Payment.request_id == request_id))
 
     if ride_request.status == "accepted":
