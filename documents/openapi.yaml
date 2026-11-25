@@ -297,49 +297,49 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }      
 
   /rides/{ride_id}/detours:
-  get:
-    summary: Get all detours for a ride
-    description: >
-      Retrieves all detour points associated with a specific ride.
-      Access is restricted to the ride's driver and registered riders.
-      Detours are ordered by distance from the University of Manitoba,
-      from furthest to closest.
-    operationId: get_detours
-    tags: [Rides]
-    parameters:
-      - name: ride_id
-        in: path
-        required: true
-        description: The unique ID of the ride.
-        schema:
-          type: string
-    responses:
-      '200':
-        description: Successfully retrieved the ride's detours.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RideDetours'
-      '403':
-        description: The authenticated user is neither the ride's driver nor a registered rider.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                detail:
-                  type: string
-                  example: not authorized to see detours for this ride
-      '404':
-        description: The requested ride does not exist.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                detail:
-                  type: string
-                  example: Ride not found
+    get:
+      summary: Get all detours for a ride
+      description: >
+        Retrieves all detour points associated with a specific ride.
+        Access is restricted to the ride's driver and registered riders.
+        Detours are ordered by distance from the University of Manitoba,
+        from furthest to closest.
+      operationId: get_detours
+      tags: [Rides]
+      parameters:
+        - name: ride_id
+          in: path
+          required: true
+          description: The unique ID of the ride.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved the ride's detours.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RideDetours'
+        '403':
+          description: The authenticated user is neither the ride's driver nor a registered rider.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: not authorized to see detours for this ride
+        '404':
+          description: The requested ride does not exist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Ride not found
 
   /requests/mine:
     get:
