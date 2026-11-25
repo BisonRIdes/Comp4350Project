@@ -64,12 +64,17 @@ async def make_user(
         return user.id
 
 
-async def make_ride(driver_id: str, seats: int = 2, price_cents: int | None = None) -> str:
+async def make_ride(
+    driver_id: str,
+    seats: int = 2,
+    price_cents: int | None = None,
+    departure: datetime = datetime(2026, 11, 1, 14, 30, tzinfo=UTC),
+) -> str:
     async with SessionLocal() as db:
         ride = Ride(
             driver_id=driver_id,
             origin_point=POINT,
-            departure_time=datetime(2026, 11, 1, 14, 30, tzinfo=UTC),
+            departure_time=departure,
             seats=seats,
             price_cents=price_cents,
         )

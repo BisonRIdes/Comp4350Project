@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,7 +11,7 @@ from models import Payment, Ride, RideDetour, RideRegistration, RideRequest, Use
 from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
 from util import stripe_api
 from util.auth import CurrentUser, get_current_user
-from util.constants import U_OF_M_COORD
+from util.constants import CANCEL_CUTOFF_HOURS, U_OF_M_COORD
 from util.email import send_ride_cancelled, send_ride_changed
 from util.ride_utils import get_distance
 from util.seats import count_accepted
@@ -149,6 +150,14 @@ async def delete_ride(
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
     check_owner(ride, user)
+
+    leaves_in = ride.departure_time - datetime.now(UTC)
+    if leaves_in < timedelta(hours=CANCEL_CUTOFF_HOURS) and await count_accepted(ride_id, db):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Rides with accepted riders can't be cancelled less than "
+            f"{CANCEL_CUTOFF_HOURS} hours before they leave",
+        )
 
     requests = (
         await db.execute(

@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, call
 
 import pytest
@@ -461,13 +461,14 @@ def cancel_emails(monkeypatch):
     return sent
 
 
-async def ride_with_riders() -> tuple[str, str, dict[str, str]]:
+async def ride_with_riders(leaves_in: timedelta = timedelta(days=2)) -> tuple[str, str, dict]:
     """A ride with a paid rider, an accepted rider who hasn't paid, and a pending request.
 
     Returns (driver id, ride id, request id by rider name).
     """
     driver_id = await make_user("driver", True)
-    ride_id = await make_ride(driver_id, seats=3, price_cents=500)
+    departure = datetime.now(UTC) + leaves_in
+    ride_id = await make_ride(driver_id, seats=3, price_cents=500, departure=departure)
     requests = {}
     for name, status in [("paid", "accepted"), ("unpaid", "accepted"), ("pending", "pending")]:
         rider_id = await make_user(name)
@@ -516,6 +517,29 @@ async def test_delete_ride_keeps_everything_if_a_refund_fails(
         assert len((await db.scalars(select(RideRegistration))).all()) == 2
         assert len((await db.scalars(select(Payment))).all()) == 2
     cancel_emails.assert_not_awaited()
+
+
+async def test_delete_ride_with_riders_too_close_to_leaving(fake_stripe, cancel_emails):
+    driver_id, ride_id, _ = await ride_with_riders(leaves_in=timedelta(hours=11))
+
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
+
+    assert response.status_code == 409
+    assert "12 hours" in response.json()["detail"]
+    assert fake_stripe.calls == []
+    async with SessionLocal() as db:
+        assert len((await db.scalars(select(Ride))).all()) == 1
+    cancel_emails.assert_not_awaited()
+
+
+async def test_delete_ride_nobody_joined_close_to_leaving(cancel_emails):
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, departure=datetime.now(UTC) + timedelta(hours=1))
+    await make_request(ride_id, await make_user("pending"), "pending")
+
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
+
+    assert response.status_code == 204
 
 
 async def test_delete_ride_is_logged(fake_stripe, cancel_emails, caplog):
