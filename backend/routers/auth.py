@@ -15,6 +15,7 @@ from schemas import (
 )
 from util.constants import ACCESS_TOKEN_HOURS, VERIFY_TOKEN_HOURS
 from util.email import send_verification_email
+from util.login_limit import clear_failed_logins, record_failed_login, too_many_failed_logins
 from util.security import verify_password
 from util.tokens import create_token, read_token
 
@@ -28,11 +29,22 @@ NO_ACCOUNT_HASH: Final = f"{'0' * 32}${'0' * 128}"
 # log a user in and return a token plus their account details, such as if they are a driver
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginBody, db: Annotated[AsyncSession, Depends(get_db)]) -> LoginResponse:
-    user = await db.scalar(select(User).where(User.email == body.email.lower()))
+    email = body.email.lower()
+    # checked before the password, so a guesser gets no answer once they hit the limit
+    if too_many_failed_logins(email):
+        raise HTTPException(
+            status_code=429, detail="Too many failed logins. Try again in 15 minutes."
+        )
+
+    # counted before any await, so parallel guesses can't all slip past the check
+    record_failed_login(email)
+
+    user = await db.scalar(select(User).where(User.email == email))
     stored_hash = user.password_hash if user else NO_ACCOUNT_HASH
     password_ok = await verify_password(body.password, stored_hash)
     if user is None or not password_ok:
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    clear_failed_logins(email)
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Verify your student email before logging in")
 

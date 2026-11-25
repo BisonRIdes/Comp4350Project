@@ -66,6 +66,11 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "422": { $ref: "#/components/responses/ValidationError" }
+        "429":
+          description: 5 failed logins for this email in the last 15 minutes. Try again later.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /auth/verify:
     post:
