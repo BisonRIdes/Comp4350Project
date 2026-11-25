@@ -12,6 +12,7 @@ from util.email import (
     USER_AGENT,
     send_payment_receipt,
     send_ride_cancelled,
+    send_ride_changed,
     send_verification_email,
 )
 
@@ -115,3 +116,15 @@ async def test_ride_cancelled_email(monkeypatch):
     assert "$6.50 CAD has been refunded" in paid["text"]
     assert "https://app.bisonrides.me/dashboard" in paid["text"]
     assert "refunded" not in unpaid["text"]
+
+
+async def test_ride_changed_email(monkeypatch):
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(sent))
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+
+    await send_ride_changed("bob@myumanitoba.ca", "alice", "departure time")
+
+    message = json.loads(sent[0].data)
+    assert message["subject"] == "Your BisonRides ride changed"
+    assert "alice changed the departure time of the ride you're on" in message["text"]

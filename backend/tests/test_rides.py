@@ -308,6 +308,49 @@ async def test_edit_ride_price():
     assert response.json()["price_cents"] == 650
 
 
+@pytest.fixture
+def change_emails(monkeypatch):
+    """Replaces the "ride changed" email, to check who would have got one."""
+    sent = AsyncMock()
+    monkeypatch.setattr(rides, "send_ride_changed", sent)
+    return sent
+
+
+async def test_edit_ride_time_emails_accepted_riders(change_emails, caplog):
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    accepted_id = await make_user("accepted")
+    await make_registration(ride_id, accepted_id)
+    await make_request(ride_id, await make_user("pending"), "pending")
+
+    with caplog.at_level(logging.INFO, logger="routers.rides"):
+        response = client.patch(
+            f"/rides/{ride_id}",
+            json={"departure_time": "2026-12-01T08:00:00Z", "origin_point": POINT},
+            headers=auth(driver_id),
+        )
+
+    assert response.status_code == 200
+    # the starting point was sent but didn't change, and only accepted riders are told
+    change_emails.assert_awaited_once_with("accepted@myumanitoba.ca", "driver", "departure time")
+    assert f"Ride {ride_id} edited by its driver {driver_id}: departure_time, origin_point" in (
+        caplog.text
+    )
+
+
+async def test_edit_ride_seats_or_price_sends_no_email(change_emails):
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    await make_registration(ride_id, await make_user("accepted"))
+
+    response = client.patch(
+        f"/rides/{ride_id}", json={"seats": 4, "price_cents": 600}, headers=auth(driver_id)
+    )
+
+    assert response.status_code == 200
+    change_emails.assert_not_awaited()
+
+
 async def test_edit_ride_not_found():
     driver_id = await make_user("driver", True)
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated
+from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, delete, exists, func, select
@@ -11,11 +11,14 @@ from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, Updat
 from util import stripe_api
 from util.auth import CurrentUser, get_current_user
 from util.constants import U_OF_M_COORD
-from util.email import send_ride_cancelled
+from util.email import send_ride_cancelled, send_ride_changed
 from util.ride_utils import get_distance
 from util.seats import count_accepted
 
 logger = logging.getLogger(__name__)
+
+# changes accepted riders are emailed about, with how the email names them
+NOTIFY_CHANGES: Final = {"departure_time": "departure time", "origin_point": "starting point"}
 
 # every rides route needs a logged-in student
 router = APIRouter(prefix="/rides", tags=["rides"], dependencies=[Depends(get_current_user)])
@@ -112,11 +115,27 @@ async def edit_ride(
     if "seats" in changes and changes["seats"] < await count_accepted(ride_id, db):
         raise HTTPException(status_code=409, detail="Seats can't be fewer than accepted riders")
 
+    before = {field: getattr(ride, field) for field in changes}
     for field, value in changes.items():
         setattr(ride, field, value)
 
     await db.commit()
     await db.refresh(ride)
+    logger.info("Ride %s edited by its driver %s: %s", ride_id, user.id, ", ".join(sorted(changes)))
+
+    changed = [
+        label
+        for field, label in NOTIFY_CHANGES.items()
+        if field in changes and getattr(ride, field) != before[field]
+    ]
+    if changed:
+        riders = await db.scalars(
+            select(User.email)
+            .join(RideRegistration, RideRegistration.rider_id == User.id)
+            .where(RideRegistration.ride_id == ride_id)
+        )
+        for email in riders:
+            await send_ride_changed(email, user.username, " and ".join(changed))
     # check_owner above means the logged-in user is the driver
     return to_ride_out(ride, await count_accepted(ride_id, db), user.username)
 

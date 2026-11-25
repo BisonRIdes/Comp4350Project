@@ -98,6 +98,18 @@ async def send_ride_cancelled(to: str, driver: str, refunded_cents: int | None) 
     )
 
 
+async def send_ride_changed(to: str, driver: str, what: str) -> None:
+    """Tell an accepted rider that the driver changed something that affects their trip."""
+    await _send(
+        to,
+        "Your BisonRides ride changed",
+        f"{driver} changed the {what} of the ride you're on.\n\n"
+        f"Check the new details: {_frontend_url()}/dashboard\n\n"
+        "If it doesn't work for you anymore, you can cancel your seat. "
+        "If you paid, you get the full amount back.",
+    )
+
+
 async def send_payment_receipt(to: str, request_id: str, amount_cents: int) -> None:
     """Tell a rider their payment went through and their seat is confirmed."""
     link = f"{_frontend_url()}/requests/{request_id}/pay"
