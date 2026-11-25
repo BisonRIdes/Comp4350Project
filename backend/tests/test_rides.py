@@ -1,10 +1,14 @@
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, call
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Ride, RideRegistration, RideRequest
+from models import Payment, Ride, RideDetour, RideRegistration, RideRequest
+from routers import rides
 from schemas import Detour
 from tests.helpers import (
     DETOUR_POINTS,
@@ -12,10 +16,13 @@ from tests.helpers import (
     auth,
     client,
     make_detour,
+    make_payment,
     make_registration,
+    make_request,
     make_ride,
     make_user,
 )
+from util import stripe_api
 
 pytestmark = pytest.mark.regression
 
@@ -301,6 +308,49 @@ async def test_edit_ride_price():
     assert response.json()["price_cents"] == 650
 
 
+@pytest.fixture
+def change_emails(monkeypatch):
+    """Replaces the "ride changed" email, to check who would have got one."""
+    sent = AsyncMock()
+    monkeypatch.setattr(rides, "send_ride_changed", sent)
+    return sent
+
+
+async def test_edit_ride_time_emails_accepted_riders(change_emails, caplog):
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    accepted_id = await make_user("accepted")
+    await make_registration(ride_id, accepted_id)
+    await make_request(ride_id, await make_user("pending"), "pending")
+
+    with caplog.at_level(logging.INFO, logger="routers.rides"):
+        response = client.patch(
+            f"/rides/{ride_id}",
+            json={"departure_time": "2026-12-01T08:00:00Z", "origin_point": POINT},
+            headers=auth(driver_id),
+        )
+
+    assert response.status_code == 200
+    # the starting point was sent but didn't change, and only accepted riders are told
+    change_emails.assert_awaited_once_with("accepted@myumanitoba.ca", "driver", "departure time")
+    assert f"Ride {ride_id} edited by its driver {driver_id}: departure_time, origin_point" in (
+        caplog.text
+    )
+
+
+async def test_edit_ride_seats_or_price_sends_no_email(change_emails):
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, seats=3)
+    await make_registration(ride_id, await make_user("accepted"))
+
+    response = client.patch(
+        f"/rides/{ride_id}", json={"seats": 4, "price_cents": 600}, headers=auth(driver_id)
+    )
+
+    assert response.status_code == 200
+    change_emails.assert_not_awaited()
+
+
 async def test_edit_ride_not_found():
     driver_id = await make_user("driver", True)
 
@@ -403,22 +453,105 @@ async def test_delete_someone_elses_ride():
         assert len((await db.scalars(select(Ride))).all()) == 1
 
 
-async def test_delete_ride_with_accepted_rider_is_blocked():
+@pytest.fixture
+def cancel_emails(monkeypatch):
+    """Replaces the "ride cancelled" email, to check who would have got one."""
+    sent = AsyncMock()
+    monkeypatch.setattr(rides, "send_ride_cancelled", sent)
+    return sent
+
+
+async def ride_with_riders(leaves_in: timedelta = timedelta(days=2)) -> tuple[str, str, dict]:
+    """A ride with a paid rider, an accepted rider who hasn't paid, and a pending request.
+
+    Returns (driver id, ride id, request id by rider name).
+    """
     driver_id = await make_user("driver", True)
-    rider_id = await make_user("rider", False)
-    ride_id = await make_ride(driver_id)
+    departure = datetime.now(UTC) + leaves_in
+    ride_id = await make_ride(driver_id, seats=3, price_cents=500, departure=departure)
+    requests = {}
+    for name, status in [("paid", "accepted"), ("unpaid", "accepted"), ("pending", "pending")]:
+        rider_id = await make_user(name)
+        requests[name] = await make_request(ride_id, rider_id, status)
+        if status == "accepted":
+            await make_registration(ride_id, rider_id)
+            await make_detour(ride_id, rider_id, DETOUR_POINTS[0])
+    await make_payment(requests["paid"], "paid", 500)
+    await make_payment(requests["unpaid"], "unpaid", 500)
+    return driver_id, ride_id, requests
+
+
+async def test_delete_ride_with_riders_refunds_and_emails_them(fake_stripe, cancel_emails):
+    driver_id, ride_id, requests = await ride_with_riders()
+
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
+
+    assert response.status_code == 204
+    assert ("refund", f"pi_{requests['paid']}") in fake_stripe.calls
+    assert ("cancel", f"pi_{requests['unpaid']}") in fake_stripe.calls
     async with SessionLocal() as db:
-        db.add(RideRegistration(ride_id=ride_id, rider_id=rider_id))
-        await db.commit()
+        for table in (Ride, RideRequest, RideRegistration, RideDetour, Payment):
+            assert (await db.scalars(select(table))).all() == []
+    assert sorted(cancel_emails.await_args_list) == [
+        call("paid@myumanitoba.ca", "driver", 500),
+        call("pending@myumanitoba.ca", "driver", None),
+        call("unpaid@myumanitoba.ca", "driver", None),
+    ]
+
+
+async def test_delete_ride_keeps_everything_if_a_refund_fails(
+    fake_stripe, cancel_emails, monkeypatch
+):
+    driver_id, ride_id, _ = await ride_with_riders()
+
+    async def stripe_is_down(intent_id):
+        raise HTTPException(status_code=502, detail="Couldn't reach our payment provider")
+
+    monkeypatch.setattr(stripe_api, "refund_payment", stripe_is_down)
+
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
+
+    assert response.status_code == 502
+    async with SessionLocal() as db:
+        assert len((await db.scalars(select(Ride))).all()) == 1
+        assert len((await db.scalars(select(RideRegistration))).all()) == 2
+        assert len((await db.scalars(select(Payment))).all()) == 2
+    cancel_emails.assert_not_awaited()
+
+
+async def test_delete_ride_with_riders_too_close_to_leaving(fake_stripe, cancel_emails):
+    driver_id, ride_id, _ = await ride_with_riders(leaves_in=timedelta(hours=11))
 
     response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
 
     assert response.status_code == 409
+    assert "12 hours" in response.json()["detail"]
+    assert fake_stripe.calls == []
     async with SessionLocal() as db:
         assert len((await db.scalars(select(Ride))).all()) == 1
+    cancel_emails.assert_not_awaited()
 
 
-async def test_delete_ride_removes_pending_requests():
+async def test_delete_ride_nobody_joined_close_to_leaving(cancel_emails):
+    driver_id = await make_user("driver", True)
+    ride_id = await make_ride(driver_id, departure=datetime.now(UTC) + timedelta(hours=1))
+    await make_request(ride_id, await make_user("pending"), "pending")
+
+    response = client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
+
+    assert response.status_code == 204
+
+
+async def test_delete_ride_is_logged(fake_stripe, cancel_emails, caplog):
+    driver_id, ride_id, _ = await ride_with_riders()
+
+    with caplog.at_level(logging.INFO, logger="routers.rides"):
+        client.delete(f"/rides/{ride_id}", headers=auth(driver_id))
+
+    assert f"Ride {ride_id} cancelled by its driver {driver_id} (3 requests)" in caplog.text
+
+
+async def test_delete_ride_removes_pending_requests(cancel_emails):
     driver_id = await make_user("driver", True)
     rider_id = await make_user("rider", False)
     ride_id = await make_ride(driver_id)

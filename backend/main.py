@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 from contextlib import asynccontextmanager
@@ -9,6 +10,10 @@ from database import Base, engine
 from routers import auth, chats, payments, ride_requests, rides, updates, users
 
 API_KEY = os.environ["API_KEY"]
+
+# Without this, Python drops our info-level messages (e.g. rides edited or cancelled), so they
+# never reach Render's logs. Each line gets a timestamp.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 header_scheme = APIKeyHeader(name="x-key", auto_error=None)
 

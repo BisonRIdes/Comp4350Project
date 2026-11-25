@@ -25,3 +25,7 @@ MESSAGE_LENGTH: Final = 512
 # Failed logins allowed for one email before /auth/login stops checking passwords for a while.
 MAX_FAILED_LOGINS: Final = 5
 FAILED_LOGIN_WINDOW_SECONDS: Final = 15 * 60
+
+# A driver can't cancel a ride with accepted riders less than this long before it leaves, so riders
+# aren't left without a ride at the last minute. Rides nobody has joined can always be deleted.
+CANCEL_CUTOFF_HOURS: Final = 12

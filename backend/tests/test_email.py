@@ -7,7 +7,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from util.email import RESEND_URL, USER_AGENT, send_payment_receipt, send_verification_email
+from util.email import (
+    RESEND_URL,
+    USER_AGENT,
+    send_payment_receipt,
+    send_ride_cancelled,
+    send_ride_changed,
+    send_verification_email,
+)
 
 pytestmark = pytest.mark.regression
 
@@ -92,3 +99,32 @@ async def test_payment_receipt(monkeypatch):
     assert message["subject"] == "Your BisonRides seat is paid"
     assert "$6.50 CAD" in message["text"]
     assert "https://app.bisonrides.me/requests/req-1/pay" in message["text"]
+
+
+async def test_ride_cancelled_email(monkeypatch):
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(sent))
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("FRONTEND_URL", "https://app.bisonrides.me")
+
+    await send_ride_cancelled("bob@myumanitoba.ca", "alice", 650)
+    await send_ride_cancelled("carol@myumanitoba.ca", "alice", None)
+
+    paid, unpaid = (json.loads(request.data) for request in sent)
+    assert paid["subject"] == "Your BisonRides ride was cancelled"
+    assert "alice cancelled the ride" in paid["text"]
+    assert "$6.50 CAD has been refunded" in paid["text"]
+    assert "https://app.bisonrides.me/dashboard" in paid["text"]
+    assert "refunded" not in unpaid["text"]
+
+
+async def test_ride_changed_email(monkeypatch):
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(sent))
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+
+    await send_ride_changed("bob@myumanitoba.ca", "alice", "departure time")
+
+    message = json.loads(sent[0].data)
+    assert message["subject"] == "Your BisonRides ride changed"
+    assert "alice changed the departure time of the ride you're on" in message["text"]

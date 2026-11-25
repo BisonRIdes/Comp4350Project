@@ -1,16 +1,25 @@
-from typing import Annotated
+import logging
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Ride, RideDetour, RideRegistration, RideRequest, User
+from models import Payment, Ride, RideDetour, RideRegistration, RideRequest, User
 from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
+from util import stripe_api
 from util.auth import CurrentUser, get_current_user
-from util.constants import U_OF_M_COORD
+from util.constants import CANCEL_CUTOFF_HOURS, U_OF_M_COORD
+from util.email import send_ride_cancelled, send_ride_changed
 from util.ride_utils import get_distance
 from util.seats import count_accepted
+
+logger = logging.getLogger(__name__)
+
+# changes accepted riders are emailed about, with how the email names them
+NOTIFY_CHANGES: Final = {"departure_time": "departure time", "origin_point": "starting point"}
 
 # every rides route needs a logged-in student
 router = APIRouter(prefix="/rides", tags=["rides"], dependencies=[Depends(get_current_user)])
@@ -107,16 +116,32 @@ async def edit_ride(
     if "seats" in changes and changes["seats"] < await count_accepted(ride_id, db):
         raise HTTPException(status_code=409, detail="Seats can't be fewer than accepted riders")
 
+    before = {field: getattr(ride, field) for field in changes}
     for field, value in changes.items():
         setattr(ride, field, value)
 
     await db.commit()
     await db.refresh(ride)
+    logger.info("Ride %s edited by its driver %s: %s", ride_id, user.id, ", ".join(sorted(changes)))
+
+    changed = [
+        label
+        for field, label in NOTIFY_CHANGES.items()
+        if field in changes and getattr(ride, field) != before[field]
+    ]
+    if changed:
+        riders = await db.scalars(
+            select(User.email)
+            .join(RideRegistration, RideRegistration.rider_id == User.id)
+            .where(RideRegistration.ride_id == ride_id)
+        )
+        for email in riders:
+            await send_ride_changed(email, user.username, " and ".join(changed))
     # check_owner above means the logged-in user is the driver
     return to_ride_out(ride, await count_accepted(ride_id, db), user.username)
 
 
-# driver can delete a ride
+# driver cancels a ride: riders who paid are refunded, and everyone who asked to join is emailed
 @router.delete("/{ride_id}", status_code=204)
 async def delete_ride(
     ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
@@ -126,12 +151,40 @@ async def delete_ride(
         raise HTTPException(status_code=404, detail="Ride not found")
     check_owner(ride, user)
 
-    if await count_accepted(ride_id, db):
-        raise HTTPException(status_code=409, detail="Ride has accepted riders")
+    leaves_in = ride.departure_time - datetime.now(UTC)
+    if leaves_in < timedelta(hours=CANCEL_CUTOFF_HOURS) and await count_accepted(ride_id, db):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Rides with accepted riders can't be cancelled less than "
+            f"{CANCEL_CUTOFF_HOURS} hours before they leave",
+        )
 
+    requests = (
+        await db.execute(
+            select(RideRequest, User.email, Payment)
+            .join(User, User.id == RideRequest.rider_id)
+            .outerjoin(Payment, Payment.request_id == RideRequest.id)
+            .where(RideRequest.ride_id == ride_id)
+        )
+    ).all()
+
+    # money first: if Stripe can't refund someone, nothing is deleted and the driver can try again
+    for _, _, payment in requests:
+        if payment is not None:
+            await stripe_api.give_back(payment.stripe_payment_id, paid=payment.status == "paid")
+
+    request_ids = [ride_request.id for ride_request, _, _ in requests]
+    await db.execute(delete(Payment).where(Payment.request_id.in_(request_ids)))
+    await db.execute(delete(RideDetour).where(RideDetour.ride_id == ride_id))
+    await db.execute(delete(RideRegistration).where(RideRegistration.ride_id == ride_id))
     await db.execute(delete(RideRequest).where(RideRequest.ride_id == ride_id))
     await db.delete(ride)
     await db.commit()
+    logger.info("Ride %s cancelled by its driver %s (%d requests)", ride_id, user.id, len(requests))
+
+    for _, email, payment in requests:
+        paid = payment is not None and payment.status == "paid"
+        await send_ride_cancelled(email, user.username, payment.amount_cents if paid else None)
 
 
 # get all detours for a specific ride with detour points ordered from furthest away from U of M to closest

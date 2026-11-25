@@ -43,6 +43,12 @@ export default function EditRidePage() {
 
   const clearError = (field: keyof Errors) => setErrors((current) => ({ ...current, [field]: undefined }))
 
+  // Riders the driver has accepted. They're emailed if the ride is cancelled, or if its time or start changes.
+  const accepted = original ? original.seats - original.seats_left : 0
+  const riders = `${accepted} ${accepted === 1 ? 'rider' : 'riders'}`
+  const timeChanged = original !== null && departure !== toLocalInputValue(new Date(original.departure_time))
+  const emailsRiders = accepted > 0 && (place !== null || timeChanged)
+
   useEffect(() => {
     async function load() {
       try {
@@ -139,10 +145,6 @@ export default function EditRidePage() {
     setNotice('')
     try {
       const response = await deleteRide(rideId)
-      if (response.status === 409) {
-        setNotice("You can't delete this ride because riders have already been accepted.")
-        return
-      }
       if (response.status === 403) {
         setNotice('You can only delete your own rides.')
         return
@@ -229,14 +231,23 @@ export default function EditRidePage() {
               <p className="mt-2 text-[13px] text-subtle">Count only the seats you're offering, not your own.</p>
             </fieldset>
 
+            {emailsRiders && (
+              <p className="text-[13px] text-subtle">
+                You have {riders} on this ride. Saving emails them the new time or starting point.
+              </p>
+            )}
             <button type="submit" disabled={submitting} className={`${primaryButton} w-full disabled:opacity-60`}>
-              {submitting ? 'Saving…' : 'Save changes'}
+              {submitting ? 'Saving…' : emailsRiders ? `Save and email ${riders}` : 'Save changes'}
               <Icon className="h-4 w-4">{icons.arrow}</Icon>
             </button>
 
             {confirmingDelete ? (
               <div className="rounded-2xl bg-danger/5 p-4 text-center ring-1 ring-danger/20">
-                <p className="text-sm font-medium text-danger">Delete this ride? This can't be undone.</p>
+                <p className="text-sm font-medium text-danger">
+                  {accepted > 0
+                    ? `Cancel this ride? ${riders} ${accepted === 1 ? 'has' : 'have'} a seat. They'll be emailed, and anyone who paid gets a full refund. This can't be undone.`
+                    : "Delete this ride? This can't be undone."}
+                </p>
                 <div className="mt-3 flex justify-center gap-3">
                   <button
                     type="button"

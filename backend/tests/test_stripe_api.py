@@ -37,7 +37,9 @@ async def test_get_change_and_cancel_a_payment(client):
 
     client.v1.payment_intents.retrieve.assert_called_once_with("pi_1")
     client.v1.payment_intents.update.assert_called_once_with("pi_1", params={"amount": 650})
-    client.v1.payment_intents.cancel.assert_called_once_with("pi_1")
+    client.v1.payment_intents.cancel.assert_called_once_with(
+        "pi_1", options={"idempotency_key": "cancel-pi_1"}
+    )
 
 
 async def test_refund_payment_can_only_happen_once(client):
@@ -98,3 +100,11 @@ def test_webhook_without_a_secret_is_unavailable():
         stripe_api.read_webhook_event(b"{}", "t=1,v1=abc")
 
     assert error.value.status_code == 503
+
+
+async def test_give_back_refunds_a_paid_seat_and_cancels_an_unpaid_one(client):
+    await stripe_api.give_back("pi_paid", paid=True)
+    await stripe_api.give_back("pi_unpaid", paid=False)
+
+    assert client.v1.refunds.create.call_args.kwargs["params"] == {"payment_intent": "pi_paid"}
+    assert client.v1.payment_intents.cancel.call_args.args == ("pi_unpaid",)

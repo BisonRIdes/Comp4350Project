@@ -81,6 +81,35 @@ async def send_verification_email(to: str, token: str) -> None:
     )
 
 
+async def send_ride_cancelled(to: str, driver: str, refunded_cents: int | None) -> None:
+    """Tell a rider that the ride they asked to join was cancelled by its driver."""
+    refund = (
+        f"Your payment of ${refunded_cents / 100:.2f} CAD has been refunded to your card. "
+        "It can take 5 to 10 business days to show up.\n\n"
+        if refunded_cents
+        else ""
+    )
+    await _send(
+        to,
+        "Your BisonRides ride was cancelled",
+        f"{driver} cancelled the ride you asked to join.\n\n"
+        f"{refund}"
+        f"Find another ride: {_frontend_url()}/dashboard",
+    )
+
+
+async def send_ride_changed(to: str, driver: str, what: str) -> None:
+    """Tell an accepted rider that the driver changed something that affects their trip."""
+    await _send(
+        to,
+        "Your BisonRides ride changed",
+        f"{driver} changed the {what} of the ride you're on.\n\n"
+        f"Check the new details: {_frontend_url()}/dashboard\n\n"
+        "If it doesn't work for you anymore, you can cancel your seat. "
+        "If you paid, you get the full amount back.",
+    )
+
+
 async def send_payment_receipt(to: str, request_id: str, amount_cents: int) -> None:
     """Tell a rider their payment went through and their seat is confirmed."""
     link = f"{_frontend_url()}/requests/{request_id}/pay"

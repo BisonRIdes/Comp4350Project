@@ -62,7 +62,13 @@ async def change_amount(intent_id: str, amount_cents: int) -> stripe.PaymentInte
 async def cancel_payment(intent_id: str) -> None:
     """Stop an unpaid payment from going through later."""
     client = _client()
-    await _call(lambda: client.v1.payment_intents.cancel(intent_id))
+    await _call(
+        lambda: client.v1.payment_intents.cancel(
+            intent_id,
+            # retrying after a failure part way through mustn't fail on an already cancelled payment
+            options={"idempotency_key": f"cancel-{intent_id}"},
+        )
+    )
 
 
 async def refund_payment(intent_id: str) -> None:
@@ -75,6 +81,14 @@ async def refund_payment(intent_id: str) -> None:
             options={"idempotency_key": f"refund-{intent_id}"},
         )
     )
+
+
+async def give_back(intent_id: str, paid: bool) -> None:
+    """Refund a paid seat in full, or stop an unpaid payment so it can't go through later."""
+    if paid:
+        await refund_payment(intent_id)
+    else:
+        await cancel_payment(intent_id)
 
 
 def read_webhook_event(payload: bytes, signature: str | None) -> stripe.Event | None:
