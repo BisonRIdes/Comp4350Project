@@ -15,7 +15,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import SessionLocal
 from main import app
-from models import ChatRecord, Payment, Ride, RideDetour, RideRegistration, RideRequest, User
+from models import (
+    ChatRecord,
+    Payment,
+    Rating,
+    Ride,
+    RideDetour,
+    RideRegistration,
+    RideRequest,
+    User,
+)
 from schemas import GeoJSONPoint
 from util.chat_utils import find_or_create
 from util.security import hash_password
@@ -30,6 +39,8 @@ DETOUR_POINTS = [
     {"type": "Point", "coordinates": [-97.16, 49.85]},  # Walmart
 ]
 STRIPE_WEBHOOK_SECRET = "whsec_test"
+# when make_ride's rides leave unless a test says otherwise (in the past, so they can be rated)
+RIDE_TIME = datetime(2026, 11, 1, 14, 30, tzinfo=UTC)
 
 
 def new_id() -> str:
@@ -64,12 +75,17 @@ async def make_user(
         return user.id
 
 
-async def make_ride(driver_id: str, seats: int = 2, price_cents: int | None = None) -> str:
+async def make_ride(
+    driver_id: str,
+    seats: int = 2,
+    price_cents: int | None = None,
+    departure_time: datetime = RIDE_TIME,
+) -> str:
     async with SessionLocal() as db:
         ride = Ride(
             driver_id=driver_id,
             origin_point=POINT,
-            departure_time=datetime(2026, 11, 1, 14, 30, tzinfo=UTC),
+            departure_time=departure_time,
             seats=seats,
             price_cents=price_cents,
         )
@@ -90,6 +106,32 @@ async def make_registration(ride: str, rider: str):
     async with SessionLocal() as db:
         reg = RideRegistration(ride_id=ride, rider_id=rider)
         db.add(reg)
+        await db.commit()
+
+
+async def make_rating(
+    ride_id: str,
+    rater_id: str,
+    ratee_id: str,
+    ratee_role: str,
+    stars: int,
+    comment: str | None = None,
+    created_at: datetime | None = None,
+):
+    """Save a rating straight to the DB, skipping the rules the API checks."""
+    async with SessionLocal() as db:
+        rating = Rating(
+            ride_id=ride_id,
+            rater_id=rater_id,
+            ratee_id=ratee_id,
+            ratee_role=ratee_role,
+            stars=stars,
+            comment=comment,
+        )
+        # leave it unset to get the model's default (now)
+        if created_at is not None:
+            rating.created_at = created_at
+        db.add(rating)
         await db.commit()
 
 

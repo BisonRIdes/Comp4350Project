@@ -12,6 +12,7 @@ from tests.helpers import (
     auth,
     client,
     make_detour,
+    make_rating,
     make_registration,
     make_ride,
     make_user,
@@ -83,6 +84,35 @@ async def test_list_rides_shows_driver_name():
     assert names == {ride_id: "driver", other_ride_id: "other"}
 
 
+async def test_list_rides_shows_driver_rating():
+    driver_id = await make_user("driver", True)
+    new_driver_id = await make_user("new_driver", True)
+    ride_id = await make_ride(driver_id)
+    new_ride_id = await make_ride(new_driver_id)
+    await make_rating(ride_id, await make_user("rider1"), driver_id, "driver", 4)
+    await make_rating(ride_id, await make_user("rider2"), driver_id, "driver", 5)
+
+    response = client.get("/rides", headers=auth(driver_id))
+
+    ratings = {r["id"]: (r["driver_rating"], r["driver_rating_count"]) for r in response.json()}
+    assert ratings == {ride_id: (4.5, 2), new_ride_id: (None, 0)}
+
+
+async def test_list_rides_driver_rating_ignores_ratings_as_rider():
+    driver_id = await make_user("driver", True)
+    other_driver_id = await make_user("other", True)
+    ride_id = await make_ride(driver_id)
+    # the driver once rode with someone else and got 1 star as a rider
+    other_ride_id = await make_ride(other_driver_id)
+    await make_rating(other_ride_id, other_driver_id, driver_id, "rider", 1)
+
+    response = client.get("/rides", headers=auth(driver_id))
+
+    ride = next(ride for ride in response.json() if ride["id"] == ride_id)
+    assert ride["driver_rating"] is None
+    assert ride["driver_rating_count"] == 0
+
+
 async def test_list_rides_not_logged_in():
     response = client.get("/rides")
 
@@ -120,6 +150,18 @@ async def test_get_ride_shows_seats_left():
     assert response.json()["seats_left"] == 0
 
 
+async def test_get_ride_shows_driver_rating():
+    driver_id = await make_user("driver", True)
+    rider_id = await make_user("rider")
+    ride_id = await make_ride(driver_id)
+    await make_rating(ride_id, rider_id, driver_id, "driver", 3)
+
+    response = client.get(f"/rides/{ride_id}", headers=auth(rider_id))
+
+    assert response.json()["driver_rating"] == 3.0
+    assert response.json()["driver_rating_count"] == 1
+
+
 async def test_get_ride_not_found():
     user_id = await make_user("rider")
 
@@ -151,6 +193,21 @@ async def test_create_ride():
     assert body["driver_username"] == "driver"
     async with SessionLocal() as db:
         assert len((await db.scalars(select(Ride))).all()) == 1
+
+
+async def test_create_ride_shows_drivers_existing_rating():
+    driver_id = await make_user("driver", True)
+    earlier_ride_id = await make_ride(driver_id)
+    await make_rating(earlier_ride_id, await make_user("rider"), driver_id, "driver", 5)
+
+    response = client.post(
+        "/rides",
+        json={"origin_point": POINT, "departure_time": TIME},
+        headers=auth(driver_id),
+    )
+
+    assert response.json()["driver_rating"] == 5.0
+    assert response.json()["driver_rating_count"] == 1
 
 
 async def test_create_ride_defaults_to_one_seat():
