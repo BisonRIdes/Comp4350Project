@@ -25,3 +25,10 @@ MESSAGE_LENGTH: Final = 512
 # Failed logins allowed for one email before /auth/login stops checking passwords for a while.
 MAX_FAILED_LOGINS: Final = 5
 FAILED_LOGIN_WINDOW_SECONDS: Final = 15 * 60
+
+# Ratings are whole stars from 1 to 5, with an optional short comment.
+MIN_STARS: Final = 1
+MAX_STARS: Final = 5
+RATING_COMMENT_LENGTH: Final = 500
+# How many of the newest comments a user's rating summary shows.
+RECENT_RATING_COMMENTS: Final = 5
