@@ -35,6 +35,7 @@ tags:
   - name: Updates
   - name: Payments
   - name: Chats
+  - name: Ratings
 
 paths:
   /auth/login:
@@ -678,6 +679,85 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /rides/{ride_id}/ratings:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    post:
+      tags: [Ratings]
+      operationId: createRating
+      summary: Rate the driver or a rider you shared a ride with
+      description: |
+        The rater is whoever is logged in. Riders rate the driver, and the driver rates each
+        accepted rider; riders don't rate each other. Only once the ride's departure time has
+        passed, and only once per person per ride. A rating can't be changed afterwards.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRatingRequest" }
+      responses:
+        "201":
+          description: Rating saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rating" }
+        "400":
+          description: The user tried to rate themselves, or the ride hasn't left yet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: |
+            The logged-in user wasn't on this ride (as its driver or an accepted rider), or the
+            person they're rating can't be rated by them (e.g. a rider rating another rider)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The user already rated this person for this ride
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /ratings/pending:
+    get:
+      tags: [Ratings]
+      operationId: listPendingRatings
+      summary: Everyone the logged-in user still has to rate
+      description: |
+        Across every ride the user drove or was accepted on that has already left: the driver
+        (as a rider) or each accepted rider (as the driver) they haven't rated yet.
+        Newest ride first, then by username.
+      responses:
+        "200":
+          description: People to rate
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PendingRating" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /users/{user_id}/rating:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Ratings]
+      operationId: getUserRating
+      summary: How a user has been rated as a driver and as a rider
+      description: The two roles are averaged separately. Comments never say who wrote them.
+      responses:
+        "200":
+          description: The user's rating summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserRating" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     ApiKeyHeader:
@@ -704,6 +784,11 @@ components:
       schema: { type: string, format: uuid }
     ChatId:
       name: chat_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: user_id
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -894,7 +979,18 @@ components:
     Ride:
       type: object
       required:
-        [id, driver_id, driver_username, origin_point, departure_time, seats, price_cents, seats_left]
+        [
+          id,
+          driver_id,
+          driver_username,
+          origin_point,
+          departure_time,
+          seats,
+          price_cents,
+          seats_left,
+          driver_rating,
+          driver_rating_count,
+        ]
       properties:
         id: { type: string, format: uuid }
         driver_id: { type: string, format: uuid }
@@ -909,6 +1005,15 @@ components:
           type: integer
           minimum: 0
           description: Seats not yet taken by accepted riders, whether they've paid or not. 0 means the ride is full.
+        driver_rating:
+          type: [number, "null"]
+          minimum: 1
+          maximum: 5
+          description: The driver's average stars from riders, across all their rides, rounded to one decimal. Null until a rider rates them.
+        driver_rating_count:
+          type: integer
+          minimum: 0
+          description: How many rider ratings `driver_rating` is based on
 
     CreateRideRequest:
       type: object
@@ -1006,6 +1111,81 @@ components:
           type: array
           description: This user's requests that have been accepted or declined (rider view)
           items: { $ref: "#/components/schemas/RideRequestDetails" }
+
+    RatingRole:
+      type: string
+      enum: [driver, rider]
+      description: The rated person's role on the ride
+
+    CreateRatingRequest:
+      type: object
+      description: The rater is whoever is logged in.
+      required: [ratee_id, stars]
+      properties:
+        ratee_id: { type: string, format: uuid, description: The person being rated }
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        comment:
+          type: [string, "null"]
+          maxLength: 500
+          description: Optional. Trimmed; a blank comment is saved as null.
+
+    Rating:
+      type: object
+      required: [id, ride_id, rater_id, ratee_id, ratee_role, stars, comment, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        ride_id: { type: string, format: uuid }
+        rater_id: { type: string, format: uuid }
+        ratee_id: { type: string, format: uuid }
+        ratee_role: { $ref: "#/components/schemas/RatingRole" }
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+
+    PendingRating:
+      type: object
+      description: Someone the logged-in user shared a ride with and hasn't rated yet.
+      required: [ride_id, departure_time, user_id, username, role]
+      properties:
+        ride_id: { type: string, format: uuid }
+        departure_time: { type: string, format: date-time, description: When the ride left }
+        user_id: { type: string, format: uuid, description: The person to rate }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/RatingRole" }
+
+    RatingStats:
+      type: object
+      required: [average, count]
+      properties:
+        average:
+          type: [number, "null"]
+          minimum: 1
+          maximum: 5
+          description: Average stars rounded to one decimal. Null when there are no ratings.
+        count: { type: integer, minimum: 0 }
+
+    RatingComment:
+      type: object
+      description: A comment left with a rating. Who wrote it is not included.
+      required: [stars, comment, role, created_at]
+      properties:
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        role: { $ref: "#/components/schemas/RatingRole" }
+        created_at: { type: string, format: date-time }
+
+    UserRating:
+      type: object
+      required: [user_id, as_driver, as_rider, recent_comments]
+      properties:
+        user_id: { type: string, format: uuid }
+        as_driver: { $ref: "#/components/schemas/RatingStats" }
+        as_rider: { $ref: "#/components/schemas/RatingStats" }
+        recent_comments:
+          type: array
+          maxItems: 5
+          description: The newest comments in either role, newest first
+          items: { $ref: "#/components/schemas/RatingComment" }
 
     Payment:
       type: object
