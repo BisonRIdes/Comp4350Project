@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useMemo, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
@@ -10,11 +10,13 @@ import { RequestStatus } from '../constants'
 import { headingClass } from '../styles'
 import { useMyRequests } from '../hooks/useMyRequests'
 import { useOpenRide } from '../hooks/useOpenRide'
+import { usePickups } from '../hooks/usePickups'
 import { useRides } from '../hooks/useRides'
 import { useSeatPayments } from '../hooks/useSeatPayments'
 import { useSearchParams } from 'react-router'
 import { getUser } from '../lib/auth'
 import { distanceKm, type Place } from '../lib/places'
+import { rideColors } from '../lib/rideColor'
 import { DESTINATION } from '../lib/rides'
 
 // fromPlace / toPlace are set when that field was picked from the suggestions; then rides are
@@ -99,6 +101,8 @@ export default function DashboardPage() {
   const user = getUser()
   const [form, setForm] = useState<Search>(emptySearch)
   const [activeSearch, setActiveSearch] = useState<Search | null>(null)
+  // The ride whose card or map dot the pointer is over, so the other one is highlighted too.
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const { active: seats, loading: seatsLoading, error: seatsError, cancel } = useMyRequests()
   const payments = useSeatPayments(
@@ -115,6 +119,13 @@ export default function DashboardPage() {
         ? allRides.filter(isOwn)
         : allRides
   const rides = activeSearch ? findRides(listed, activeSearch) : listed
+  const rideIdsKey = rides.map((ride) => ride.id).join(',')
+  const colors = useMemo(() => rideColors(rideIdsKey ? rideIdsKey.split(',') : []), [rideIdsKey])
+  // Rides the user drives or has an accepted seat on also show their riders' pickups on the map.
+  const mapRides = usePickups(
+    rides,
+    rides.filter((ride) => isOwn(ride) || seatOnRide.get(ride.id)?.status === RequestStatus.Accepted).map((ride) => ride.id),
+  )
   const loading = ridesLoading || (view === 'seats' && seatsLoading)
   const loadError = ridesError || (view === 'seats' ? seatsError : '')
   const unpaid = payments.filter((payment) => payment.status !== 'paid' && payment.amount_cents !== null).length
@@ -146,7 +157,7 @@ export default function DashboardPage() {
     <div className="min-h-svh bg-white text-ink">
       <DashboardNavbar />
 
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-12 sm:px-6 sm:pt-16">
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-12 sm:px-6 sm:pt-16">
         <h1 className={`text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.05] ${headingClass}`}>
           Where are you <em className="text-subtle">headed?</em>
         </h1>
@@ -187,18 +198,6 @@ export default function DashboardPage() {
             </button>
           </div>
         </form>
-
-        {/* After a search, show where the matching rides start. Clicking a dot opens that ride. */}
-        {activeSearch && !loading && !loadError && rides.length > 0 && (
-          <div className="mt-8 h-72 overflow-hidden rounded-3xl bg-mist ring-1 ring-black/10 sm:h-96">
-            <LazyRideMap
-              rides={rides}
-              onSelect={openRide}
-              searchPlaces={[activeSearch.fromPlace, activeSearch.toPlace].filter((place) => place !== null)}
-              searchRadiusKm={NEARBY_KM}
-            />
-          </div>
-        )}
 
         <section className="mt-14">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -256,58 +255,83 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {loading ? (
-            <ul className="mt-6 space-y-3" aria-label="Loading rides">
-              {[0, 1, 2].map((key) => (
-                <li key={key} className="h-[104px] animate-pulse rounded-3xl bg-mist" />
-              ))}
-            </ul>
-          ) : loadError ? (
-            <p role="alert" className="mt-6 rounded-3xl bg-danger/5 px-6 py-10 text-center font-medium text-danger ring-1 ring-danger/20">
-              {loadError}
-            </p>
-          ) : rides.length > 0 ? (
-            <ul className="mt-6 space-y-3">
-              {rides.map((ride) => {
-                const seat = view === 'seats' ? seatOnRide.get(ride.id) : undefined
-                return (
-                  <li key={ride.id}>
-                    <RideCard
-                      ride={ride}
-                      isOwn={isOwn(ride)}
-                      // Drivers edit their own rides; everyone else opens the ride to request a seat.
-                      onClick={() => openRide(ride)}
-                      footer={
-                        seat && (
-                          <SeatActions
-                            status={seat.status}
-                            payment={payments.find((payment) => payment.request_id === seat.id)}
-                            onCancel={() => cancelSeat(seat.id)}
-                          />
-                        )
-                      }
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-          ) : (
-            <div role="status" className="mt-6 rounded-3xl bg-mist px-6 py-16 text-center">
-              <p className="text-lg font-medium">{emptyMessages[view]}</p>
-              {activeSearch && (
-                <>
-                  <p className="mt-2 text-subtle">Try a different route or time, or clear your search to see every ride.</p>
-                  <button
-                    type="button"
-                    onClick={clearSearch}
-                    className="mt-6 text-sm font-medium text-ink underline-offset-4 hover:underline"
-                  >
-                    Show all rides
-                  </button>
-                </>
+          {/* The list on the left, the same rides on a map on the right (map on top on phones).
+              Hovering a card highlights its dot and hovering a dot highlights its card; clicking either opens the ride. */}
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            {/* Map: right column on desktop, stays in view while the list scrolls. */}
+            <div className="h-80 overflow-hidden rounded-3xl bg-mist ring-1 ring-black/10 sm:h-96 lg:sticky lg:top-24 lg:order-last lg:h-[calc(100svh-8rem)]">
+              {!loadError && (
+                <LazyRideMap
+                  rides={mapRides}
+                  onSelect={openRide}
+                  highlightedId={hoveredId}
+                  onHover={setHoveredId}
+                  searchPlaces={
+                    activeSearch ? [activeSearch.fromPlace, activeSearch.toPlace].filter((place) => place !== null) : []
+                  }
+                  searchRadiusKm={NEARBY_KM}
+                />
               )}
             </div>
-          )}
+
+            <div>
+              {loading ? (
+                <ul className="space-y-3" aria-label="Loading rides">
+                  {[0, 1, 2].map((key) => (
+                    <li key={key} className="h-[104px] animate-pulse rounded-3xl bg-mist" />
+                  ))}
+                </ul>
+              ) : loadError ? (
+                <p role="alert" className="rounded-3xl bg-danger/5 px-6 py-10 text-center font-medium text-danger ring-1 ring-danger/20">
+                  {loadError}
+                </p>
+              ) : rides.length > 0 ? (
+                <ul className="space-y-3">
+                  {rides.map((ride) => {
+                    const seat = view === 'seats' ? seatOnRide.get(ride.id) : undefined
+                    return (
+                      <li key={ride.id} onMouseEnter={() => setHoveredId(ride.id)} onMouseLeave={() => setHoveredId(null)}>
+                        <RideCard
+                          ride={ride}
+                          compact
+                          color={colors.get(ride.id)}
+                          isOwn={isOwn(ride)}
+                          highlighted={ride.id === hoveredId}
+                          // Drivers edit their own rides; everyone else opens the ride to request a seat.
+                          onClick={() => openRide(ride)}
+                          footer={
+                            seat && (
+                              <SeatActions
+                                status={seat.status}
+                                payment={payments.find((payment) => payment.request_id === seat.id)}
+                                onCancel={() => cancelSeat(seat.id)}
+                              />
+                            )
+                          }
+                        />
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <div role="status" className="rounded-3xl bg-mist px-6 py-16 text-center">
+                  <p className="text-lg font-medium">{emptyMessages[view]}</p>
+                  {activeSearch && (
+                    <>
+                      <p className="mt-2 text-subtle">Try a different route or time, or clear your search to see every ride.</p>
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        className="mt-6 text-sm font-medium text-ink underline-offset-4 hover:underline"
+                      >
+                        Show all rides
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       </main>
     </div>

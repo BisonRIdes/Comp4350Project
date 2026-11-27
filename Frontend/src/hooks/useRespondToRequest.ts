@@ -23,17 +23,19 @@ export function useRespondToRequest(requestId: string) {
   const [busy, setBusy] = useState<Answer | null>(null)
   const [error, setError] = useState('')
 
-  async function respond(answer: Answer) {
+  async function respond(answer: Answer): Promise<boolean> {
     setBusy(answer)
     setError('')
     try {
       await (answer === 'accept' ? acceptRequest : declineRequest)(requestId)
       // Don't wait for the next poll to take the answered request off the list.
       await refresh()
+      return true
     } catch (caught) {
       const status = caught instanceof ApiError ? caught.status : 0
       setError(answerErrors[status] ?? fallbackError)
       if (staleStatuses.includes(status)) await refresh()
+      return false
     } finally {
       setBusy(null)
     }

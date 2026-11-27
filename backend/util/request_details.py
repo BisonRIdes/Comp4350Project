@@ -21,6 +21,7 @@ def request_details_query() -> Select:
             RideRequest.ride_id,
             RideRequest.rider_id,
             RideRequest.status,
+            RideRequest.detour_point,
             rider.username.label("rider_username"),
             driver.username.label("driver_username"),
             Ride.departure_time,

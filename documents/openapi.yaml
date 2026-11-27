@@ -947,6 +947,7 @@ components:
         ride_id: { type: string, format: uuid }
         rider_id: { type: string, format: uuid }
         status: { $ref: "#/components/schemas/RequestStatus" }
+        detour_point: { $ref: "#/components/schemas/GeoJSONPoint" }
 
     RideRequestDetails:
       description: A ride request with who asked, who drives, and when and where the ride leaves.

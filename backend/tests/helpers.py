@@ -78,9 +78,13 @@ async def make_ride(driver_id: str, seats: int = 2, price_cents: int | None = No
         return ride.id
 
 
-async def make_request(ride_id: str, rider_id: str, status: str = "pending") -> str:
+async def make_request(
+    ride_id: str, rider_id: str, status: str = "pending", detour_point: dict | None = None
+) -> str:
     async with SessionLocal() as db:
-        req = RideRequest(ride_id=ride_id, rider_id=rider_id, status=status)
+        req = RideRequest(
+            ride_id=ride_id, rider_id=rider_id, status=status, detour_point=detour_point
+        )
         db.add(req)
         await db.commit()
         return req.id

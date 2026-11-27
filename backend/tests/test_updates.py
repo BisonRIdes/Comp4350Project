@@ -61,13 +61,15 @@ async def test_updates_includes_request_details():
     driver = await make_user("driver", True)
     rider = await make_user("rider")
     ride = await make_ride(driver)
-    await make_request(ride, rider)
-    await make_request(ride, rider, "accepted")
+    detour = {"type": "Point", "coordinates": [-97.15, 49.85]}
+    await make_request(ride, rider, detour_point=detour)
+    await make_request(ride, rider, "accepted", detour_point=detour)
     expected = {
         "rider_username": "rider",
         "driver_username": "driver",
         "departure_time": "2026-11-01T14:30:00Z",
         "origin_point": POINT,
+        "detour_point": detour,
     }
 
     pending = client.get("/updates", headers=auth(driver)).json()["pending_requests"][0]
