@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useMemo, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { AddressInput } from '../components/AddressInput'
 import { DashboardNavbar } from '../components/DashboardNavbar'
 import { Icon } from '../components/Icon'
@@ -10,11 +10,13 @@ import { RequestStatus } from '../constants'
 import { headingClass } from '../styles'
 import { useMyRequests } from '../hooks/useMyRequests'
 import { useOpenRide } from '../hooks/useOpenRide'
+import { usePickups } from '../hooks/usePickups'
 import { useRides } from '../hooks/useRides'
 import { useSeatPayments } from '../hooks/useSeatPayments'
 import { useSearchParams } from 'react-router'
 import { getUser } from '../lib/auth'
 import { distanceKm, type Place } from '../lib/places'
+import { rideColors } from '../lib/rideColor'
 import { DESTINATION } from '../lib/rides'
 
 // fromPlace / toPlace are set when that field was picked from the suggestions; then rides are
@@ -117,6 +119,13 @@ export default function DashboardPage() {
         ? allRides.filter(isOwn)
         : allRides
   const rides = activeSearch ? findRides(listed, activeSearch) : listed
+  const rideIdsKey = rides.map((ride) => ride.id).join(',')
+  const colors = useMemo(() => rideColors(rideIdsKey ? rideIdsKey.split(',') : []), [rideIdsKey])
+  // Rides the user drives or has an accepted seat on also show their riders' pickups on the map.
+  const mapRides = usePickups(
+    rides,
+    rides.filter((ride) => isOwn(ride) || seatOnRide.get(ride.id)?.status === RequestStatus.Accepted).map((ride) => ride.id),
+  )
   const loading = ridesLoading || (view === 'seats' && seatsLoading)
   const loadError = ridesError || (view === 'seats' ? seatsError : '')
   const unpaid = payments.filter((payment) => payment.status !== 'paid' && payment.amount_cents !== null).length
@@ -253,7 +262,7 @@ export default function DashboardPage() {
             <div className="h-80 overflow-hidden rounded-3xl bg-mist ring-1 ring-black/10 sm:h-96 lg:sticky lg:top-24 lg:order-last lg:h-[calc(100svh-8rem)]">
               {!loadError && (
                 <LazyRideMap
-                  rides={rides}
+                  rides={mapRides}
                   onSelect={openRide}
                   highlightedId={hoveredId}
                   onHover={setHoveredId}
@@ -285,6 +294,7 @@ export default function DashboardPage() {
                         <RideCard
                           ride={ride}
                           compact
+                          color={colors.get(ride.id)}
                           isOwn={isOwn(ride)}
                           highlighted={ride.id === hoveredId}
                           // Drivers edit their own rides; everyone else opens the ride to request a seat.

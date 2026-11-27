@@ -28,7 +28,11 @@ export function RequestUpdateCard({ request, isNew = false }: { request: RideReq
         <p className="mt-0.5 truncate text-sm text-subtle">{route}</p>
         <p className="mt-0.5 text-sm text-subtle">
           {formatDeparture(request.departure_time)} ·{' '}
-          <Link to={`/rides/${request.ride_id}`} className="font-medium text-ink underline-offset-4 hover:underline">
+          <Link
+            to={`/rides/${request.ride_id}?from=notifications`}
+            state={{ from: 'notifications' }}
+            className="font-medium text-ink underline-offset-4 hover:underline"
+          >
             View ride
           </Link>
         </p>

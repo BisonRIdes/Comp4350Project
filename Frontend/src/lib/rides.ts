@@ -1,5 +1,5 @@
-import { apiFetch } from './api'
-import type { Ride } from '../components/RideCard'
+import { apiFetch, throwIfNotOk } from './api'
+import type { Pickup, Ride } from '../components/RideCard'
 
 // Every ride goes to campus for now.
 export const DESTINATION = 'University of Manitoba'
@@ -69,6 +69,21 @@ export async function fetchUpcomingRides(): Promise<RideOut[]> {
 // One ride by id (GET /rides/{id}). Returns the response so the page can handle 404.
 export function fetchRide(id: string): Promise<Response> {
   return apiFetch(`/rides/${id}`)
+}
+
+// What GET /rides/{id}/detours returns (RideDetours).
+type RideDetoursOut = {
+  ride_id: string
+  detours: { owner_id: string; detour_point: { type: string; coordinates: [number, number] } }[]
+}
+
+// Where the ride's accepted riders get picked up, in the order the driver stops (furthest from
+// campus first). Only the driver and the ride's riders may see them; anyone else gets 403 (thrown).
+export async function fetchPickups(rideId: string): Promise<Pickup[]> {
+  const response = await apiFetch(`/rides/${rideId}/detours`)
+  await throwIfNotOk(response)
+  const data: RideDetoursOut = await response.json()
+  return data.detours.map((detour) => ({ riderId: detour.owner_id, point: detour.detour_point.coordinates }))
 }
 
 // The fields PATCH /rides/{id} accepts (UpdateRideBody). Send only the ones that changed.

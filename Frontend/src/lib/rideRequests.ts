@@ -1,12 +1,16 @@
 import type { RequestStatus } from '../constants'
 import { apiFetch, throwIfNotOk } from './api'
 
+// A GeoJSON point. Coordinates are [longitude, latitude].
+export type GeoJSONPoint = { type: 'Point'; coordinates: [number, number] }
+
 // A ride request as the backend returns it (RideRequest in openapi.yaml).
 export type RideRequest = {
   id: string
   ride_id: string
   rider_id: string
   status: RequestStatus
+  detour_point?: { type: string; coordinates: [number, number] } | null
 }
 
 // A request with who asked, who drives, and when and where the ride leaves (RideRequestDetails).
@@ -24,9 +28,6 @@ export type Updates = {
   // This user's requests that were accepted or declined (rider view).
   request_updates: RideRequestDetails[]
 }
-
-// A GeoJSON point. Coordinates are [longitude, latitude].
-export type GeoJSONPoint = { type: 'Point'; coordinates: [number, number] }
 
 // The logged-in user asks for a seat on a ride, picked up at detourPoint.
 export async function requestRide(rideId: string, detourPoint: GeoJSONPoint): Promise<RideRequest> {

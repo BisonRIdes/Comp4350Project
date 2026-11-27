@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { RequestStatus } from '../constants'
 import { ApiError } from '../lib/api'
-import { searchPlaces } from '../lib/places'
+import { searchPlaces, type Place } from '../lib/places'
 import { fetchMyRequests, requestRide } from '../lib/rideRequests'
 
 // What to tell the rider when asking for a seat fails, by HTTP status.
@@ -35,8 +35,10 @@ export function useMyRequestForRide(rideId: string) {
   }, [rideId])
 
   
-  // pickup is what the rider typed, like "Pembina and Bishop Grandin".
-  async function request(pickup: string) {
+  // pickup is what the rider typed, like "Pembina and Bishop Grandin". place is set when they picked
+  // a suggestion, a spot on the map or their location; then its exact point is used. Otherwise the
+  // best match for the typed text is.
+  async function request(pickup: string, place: Place | null = null) {
     if (!pickup.trim()) {
       setError('Enter where you want to be picked up.')
       return
@@ -44,12 +46,12 @@ export function useMyRequestForRide(rideId: string) {
     setSending(true)
     setError('')
     try {
-      const [place] = await searchPlaces(pickup.trim())
-      if (!place) {
+      const found = place ?? (await searchPlaces(pickup.trim()))[0]
+      if (!found) {
         setError('We couldn\'t find that place in Manitoba. Try adding the town, e.g. "Main St, Steinbach".')
         return
       }
-      await requestRide(rideId, { type: 'Point', coordinates: place.coordinates })
+      await requestRide(rideId, { type: 'Point', coordinates: found.coordinates })
       setFound({ rideId, status: RequestStatus.Pending })
     } catch (caught) {
       setError(caught instanceof ApiError ? (requestErrors[caught.status] ?? fallbackError) : fallbackError)

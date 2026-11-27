@@ -3,6 +3,14 @@ import { Icon } from './Icon'
 import { icons } from './icons'
 import { dateFormat, timeFormat } from '../lib/format'
 
+// Where an accepted (or previewed) rider gets picked up.
+export type Pickup = {
+  riderId: string
+  point: [number, number] // GeoJSON order: [longitude, latitude]
+  preview?: boolean // true when previewing a pending ride request before accepting
+  riderName?: string
+}
+
 // Optional fields aren't returned by GET /rides yet; the card hides them when missing.
 export type Ride = {
   id: string
@@ -11,6 +19,7 @@ export type Ride = {
   to?: string
   origin?: [number, number] // GeoJSON order: [longitude, latitude]
   destination?: [number, number] // same order
+  pickups?: Pickup[] // riders' pickup points in the order the driver stops, between origin and destination
   departure: string // ISO date string
   driver?: string
   rating?: number
@@ -24,7 +33,8 @@ export type Ride = {
 // footer goes inside the card under the ride, e.g. the rider's seat and its buttons. The ride part
 // is its own button because a button can't hold other buttons.
 // compact keeps the narrow phone layout at every width (for the list beside the map);
-// highlighted outlines the card, e.g. while its dot on the map is hovered.
+// highlighted outlines the card, e.g. while its dot on the map is hovered;
+// color ties the card to its route line and dots on the map.
 export function RideCard({
   ride,
   isOwn = false,
@@ -32,6 +42,7 @@ export function RideCard({
   footer,
   compact = false,
   highlighted = false,
+  color,
 }: {
   ride: Ride
   isOwn?: boolean
@@ -39,6 +50,7 @@ export function RideCard({
   footer?: ReactNode
   compact?: boolean
   highlighted?: boolean
+  color?: string
 }) {
   const departure = new Date(ride.departure)
   const driver = ride.driver ?? 'Driver'
@@ -46,7 +58,10 @@ export function RideCard({
 
   return (
     <div
-      className={`group rounded-3xl bg-white transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] ${highlighted ? 'ring-2 ring-ink' : 'ring-1 ring-black/10'}`}
+      style={highlighted && color ? { boxShadow: `0 0 0 2px ${color}` } : undefined}
+      className={`group rounded-3xl bg-white transition-[transform,box-shadow] duration-500 ease-smooth hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] ${
+        highlighted ? (color ? '' : 'ring-2 ring-ink') : 'ring-1 ring-black/10'
+      }`}
     >
       <button
         type="button"
@@ -54,7 +69,10 @@ export function RideCard({
         className={`grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-3xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink ${compact ? '' : 'sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-6 sm:p-5'}`}
       >
         <div className="flex flex-col items-center text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink">
+          <span
+            style={color ? { boxShadow: `0 0 0 2.5px ${color}` } : undefined}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-mist font-serif text-lg font-semibold text-ink"
+          >
             {driver.charAt(0).toUpperCase()}
           </span>
           <span className="mt-1.5 text-sm font-medium">{driver}</span>
@@ -67,7 +85,16 @@ export function RideCard({
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-[17px] font-semibold tracking-tight">{route}</p>
+          <p className="flex items-center gap-2 text-[17px] font-semibold tracking-tight">
+            {color && (
+              <span
+                aria-hidden="true"
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+            )}
+            <span className="truncate">{route}</span>
+          </p>
           {isOwn && <span className="mt-1 inline-block rounded-full bg-mist px-2.5 py-0.5 text-xs font-medium text-ink">Your ride · tap to edit</span>}
           <p className="mt-0.5 text-sm text-subtle">
             {dateFormat.format(departure)} · {timeFormat.format(departure)}

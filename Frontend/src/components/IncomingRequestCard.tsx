@@ -26,8 +26,12 @@ export function IncomingRequestCard({ request }: { request: RideRequestDetails }
           <p className="mt-0.5 truncate text-sm text-subtle">{route}</p>
           <p className="mt-0.5 text-sm text-subtle">
             {formatDeparture(request.departure_time)} ·{' '}
-            <Link to={`/rides/${request.ride_id}`} className="font-medium text-ink underline-offset-4 hover:underline">
-              View ride
+            <Link
+              to={`/rides/${request.ride_id}?request=${encodeURIComponent(request.id)}`}
+              state={{ from: 'notifications', request }}
+              className="font-medium text-ink underline-offset-4 hover:underline"
+            >
+              Preview ride
             </Link>
           </p>
         </div>
