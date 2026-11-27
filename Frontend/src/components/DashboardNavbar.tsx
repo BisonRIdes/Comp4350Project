@@ -10,7 +10,6 @@ const appLinks = [
   { to: '/dashboard', label: 'Find Ride' },
   { to: '/notifications', label: 'Notifications' },
   { to: '/messages', label: 'Messages' },
-  { to: '/map', label: 'Map' },
 ]
 
 // Navbar for logged-in pages: logo, app links, and a profile menu.

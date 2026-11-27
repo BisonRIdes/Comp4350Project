@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import PostRidePage from './pages/PostRidePage'
-import MapPage from './pages/MapPage'
 import ProfilePage from './pages/ProfilePage'
 import VerifyPage from './pages/VerifyPage'
 import PaymentPage from './pages/PaymentPage'
@@ -43,7 +42,6 @@ function App() {
           <Route path="/rides/:rideId" element={<RequireAuth><RideDetailsPage /></RequireAuth>} />
           <Route path="/rides/:rideId/edit" element={<RequireAuth><EditRidePage /></RequireAuth>} />
           <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
-          <Route path="/map" element={<RequireAuth><MapPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/history" element={<RequireAuth><HistoryPage /></RequireAuth>} />
           <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
