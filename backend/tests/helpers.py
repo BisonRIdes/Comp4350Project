@@ -116,9 +116,12 @@ async def make_rating(
     ratee_role: str,
     stars: int,
     comment: str | None = None,
-    created_at: datetime | None = None,
+    saved_at: datetime | None = None,
 ):
-    """Save a rating straight to the DB, skipping the rules the API checks."""
+    """Save a rating straight to the DB, skipping the rules the API checks.
+
+    `saved_at` sets when it was created and last changed; leave it out for now.
+    """
     async with SessionLocal() as db:
         rating = Rating(
             ride_id=ride_id,
@@ -128,9 +131,9 @@ async def make_rating(
             stars=stars,
             comment=comment,
         )
-        # leave it unset to get the model's default (now)
-        if created_at is not None:
-            rating.created_at = created_at
+        if saved_at is not None:
+            rating.created_at = saved_at
+            rating.updated_at = saved_at
         db.add(rating)
         await db.commit()
 
