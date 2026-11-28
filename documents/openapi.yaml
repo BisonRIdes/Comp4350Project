@@ -679,57 +679,92 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
-  /rides/{ride_id}/ratings:
+  /rides/{ride_id}/ratings/{ratee_id}:
     parameters:
       - $ref: "#/components/parameters/RideId"
-    post:
+      - name: ratee_id
+        in: path
+        required: true
+        description: The person being rated
+        schema: { type: string, format: uuid }
+    put:
       tags: [Ratings]
-      operationId: createRating
-      summary: Rate the driver or a rider you shared a ride with
+      operationId: saveRating
+      summary: Rate the driver or a rider on your ride, or change that rating
       description: |
         The rater is whoever is logged in. Riders rate the driver, and the driver rates each
-        accepted rider; riders don't rate each other. Only once the ride's departure time has
-        passed, and only once per person per ride. A rating can't be changed afterwards.
+        accepted rider; riders don't rate each other, and nobody rates themselves.
+
+        Open from the moment the driver accepts the rider, so before, during and after the
+        trip (e.g. for rudeness in the chat). One rating per person per ride: the first call
+        creates it, later calls replace its stars and comment. Leaving out `comment` on a change
+        removes the old one. Only while both people are on the ride: after a rider cancels,
+        neither side can create or change a rating for that ride, but existing ones stay.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/CreateRatingRequest" }
+            schema: { $ref: "#/components/schemas/SaveRatingRequest" }
       responses:
+        "200":
+          description: Rating changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rating" }
         "201":
-          description: Rating saved
+          description: Rating created
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Rating" }
         "400":
-          description: The user tried to rate themselves, or the ride hasn't left yet
+          description: The user tried to rate themselves
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
           description: |
-            The logged-in user wasn't on this ride (as its driver or an accepted rider), or the
+            The logged-in user isn't on this ride (as its driver or an accepted rider), or the
             person they're rating can't be rated by them (e.g. a rider rating another rider)
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: The user already rated this person for this ride
+          description: The same rating was created from another tab at the same moment. Try again.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /rides/{ride_id}/ratings/mine:
+    parameters:
+      - $ref: "#/components/parameters/RideId"
+    get:
+      tags: [Ratings]
+      operationId: listMyRatingsForRide
+      summary: The ratings the logged-in user has given on this ride
+      description: For filling in the rating form when changing a rating. Empty if none yet.
+      responses:
+        "200":
+          description: This user's ratings on the ride
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Rating" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /ratings/pending:
     get:
       tags: [Ratings]
       operationId: listPendingRatings
-      summary: Everyone the logged-in user still has to rate
+      summary: Reminders of who the logged-in user hasn't rated yet
       description: |
         Across every ride the user drove or was accepted on that has already left: the driver
         (as a rider) or each accepted rider (as the driver) they haven't rated yet.
+        Rating is open earlier, from acceptance, but rides that haven't left aren't listed.
         Newest ride first, then by username.
       responses:
         "200":
@@ -1117,21 +1152,21 @@ components:
       enum: [driver, rider]
       description: The rated person's role on the ride
 
-    CreateRatingRequest:
+    SaveRatingRequest:
       type: object
-      description: The rater is whoever is logged in.
-      required: [ratee_id, stars]
+      description: The rater is whoever is logged in, and the person rated is in the URL.
+      required: [stars]
       properties:
-        ratee_id: { type: string, format: uuid, description: The person being rated }
         stars: { type: integer, minimum: 1, maximum: 5 }
         comment:
           type: [string, "null"]
           maxLength: 500
-          description: Optional. Trimmed; a blank comment is saved as null.
+          description: Optional. Trimmed; a blank comment is saved as null. Replaces any earlier comment.
 
     Rating:
       type: object
-      required: [id, ride_id, rater_id, ratee_id, ratee_role, stars, comment, created_at]
+      required:
+        [id, ride_id, rater_id, ratee_id, ratee_role, stars, comment, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         ride_id: { type: string, format: uuid }
@@ -1141,6 +1176,7 @@ components:
         stars: { type: integer, minimum: 1, maximum: 5 }
         comment: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, description: When the stars or comment last changed }
 
     PendingRating:
       type: object
@@ -1167,12 +1203,12 @@ components:
     RatingComment:
       type: object
       description: A comment left with a rating. Who wrote it is not included.
-      required: [stars, comment, role, created_at]
+      required: [stars, comment, role, updated_at]
       properties:
         stars: { type: integer, minimum: 1, maximum: 5 }
         comment: { type: string }
         role: { $ref: "#/components/schemas/RatingRole" }
-        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, description: When the rating last changed }
 
     UserRating:
       type: object
@@ -1184,7 +1220,7 @@ components:
         recent_comments:
           type: array
           maxItems: 5
-          description: The newest comments in either role, newest first
+          description: The most recently changed comments in either role, newest first
           items: { $ref: "#/components/schemas/RatingComment" }
 
     Payment:
