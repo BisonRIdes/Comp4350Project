@@ -7,13 +7,19 @@ from typing import Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from util.constants import (
+    MAX_STARS,
     MESSAGE_LENGTH,
     MIN_PRICE_CENTS,
+    MIN_STARS,
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
+    RATING_COMMENT_LENGTH,
     STUDENT_EMAIL_DOMAIN,
     USERNAME_LENGTH,
 )
+
+# the role a rated person had on the ride
+RatingRole = Literal["driver", "rider"]
 
 EMAIL_REGEX: Final = r"(?<!\S)[^@\s]+@[^@\s]+\.[^@\s]+(?!\S)"
 """Matches an email address in the format `[username]@[domain].[root_domain]`.
@@ -43,6 +49,14 @@ class GeoJSONPoint(BaseModel):
     coordinates: list[float] = Field(min_length=2, max_length=2)  # [lng, lat]
 
 
+class RatingStats(BaseModel):
+    """A user's average stars in one role and how many ratings it's based on."""
+
+    # None until someone rates them, rounded to one decimal
+    average: float | None
+    count: int
+
+
 class RideOut(BaseModel):
     """A ride as returned by the API."""
 
@@ -57,6 +71,9 @@ class RideOut(BaseModel):
     price_cents: int | None
     # seats not yet taken by accepted riders, whether they've paid or not
     seats_left: int
+    # what riders said about this driver, across all their rides
+    driver_rating: float | None
+    driver_rating_count: int
 
 
 class CreateRideBody(BaseModel):
@@ -135,6 +152,73 @@ class UpdatesOut(BaseModel):
 
     pending_requests: list[RideRequestDetailsOut]
     request_updates: list[RideRequestDetailsOut]
+
+
+class SaveRatingBody(BaseModel):
+    """Request body for rating someone on a ride, or changing that rating.
+
+    The rater is whoever is logged in, and the person rated is in the URL.
+    """
+
+    stars: int = Field(ge=MIN_STARS, le=MAX_STARS)
+    comment: str | None = Field(default=None, max_length=RATING_COMMENT_LENGTH)
+
+    @field_validator("comment")
+    @classmethod
+    def blank_comment_is_none(cls, comment: str | None) -> str | None:
+        # an empty comment box shouldn't show up as an empty review
+        if comment is None:
+            return None
+        return comment.strip() or None
+
+
+class RatingOut(BaseModel):
+    """A rating as returned by the API."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    ride_id: str
+    rater_id: str
+    ratee_id: str
+    ratee_role: RatingRole
+    stars: int
+    comment: str | None
+    created_at: datetime
+    # when the stars or comment last changed
+    updated_at: datetime
+
+
+class PendingRatingOut(BaseModel):
+    """Someone the logged-in user shared a ride with and hasn't rated yet."""
+
+    ride_id: str
+    departure_time: datetime
+    user_id: str
+    username: str
+    # their role on that ride
+    role: RatingRole
+
+
+class RatingComment(BaseModel):
+    """A comment someone left with their rating. Who wrote it isn't shown."""
+
+    stars: int
+    comment: str
+    # the rated user's role on that ride
+    role: RatingRole
+    # when the rating was last changed
+    updated_at: datetime
+
+
+class UserRatingOut(BaseModel):
+    """How a user has been rated as a driver and as a rider."""
+
+    user_id: str
+    as_driver: RatingStats
+    as_rider: RatingStats
+    # most recently changed first
+    recent_comments: list[RatingComment]
 
 
 class PaymentOut(BaseModel):

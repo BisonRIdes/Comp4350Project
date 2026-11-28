@@ -2,11 +2,25 @@ import uuid
 from datetime import UTC, datetime
 from typing import Final
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-from util.constants import MESSAGE_LENGTH, USERNAME_LENGTH
+from util.constants import (
+    MAX_STARS,
+    MESSAGE_LENGTH,
+    MIN_STARS,
+    RATING_COMMENT_LENGTH,
+    USERNAME_LENGTH,
+)
 
 user_id: Final = "users.id"
 
@@ -76,6 +90,39 @@ class Payment(Base):
     amount_cents: Mapped[int]
     # "unpaid" until Stripe's webhook says the money arrived, then "paid"
     status: Mapped[str] = mapped_column(String(20), default="unpaid")
+
+
+class Rating(Base):
+    """Stars one person on a ride gives another, from the moment the rider is accepted.
+
+    Riders rate the driver and the driver rates each accepted rider. A rating can be changed
+    later, e.g. after the trip itself, so it stays one row per person per ride.
+    """
+
+    __tablename__ = "ratings"
+    __table_args__ = (
+        # one rating per person per ride; changing it updates this row
+        UniqueConstraint("ride_id", "rater_id", "ratee_id"),
+        CheckConstraint(f"stars BETWEEN {MIN_STARS} AND {MAX_STARS}", name="ck_ratings_stars"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    ride_id: Mapped[str] = mapped_column(ForeignKey("rides.id", ondelete="CASCADE"), index=True)
+    rater_id: Mapped[str] = mapped_column(ForeignKey(user_id))
+    ratee_id: Mapped[str] = mapped_column(ForeignKey(user_id), index=True)
+    # the rated person's role on this ride ("driver" or "rider"), so the two are averaged apart
+    ratee_role: Mapped[str] = mapped_column(String(6))
+    stars: Mapped[int]
+    comment: Mapped[str | None] = mapped_column(String(RATING_COMMENT_LENGTH), default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    # ratings can be changed at any time, so this is when the stars or comment last changed
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
 
 class ChatRecord(Base):

@@ -6,9 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Ride, RideDetour, RideRegistration, RideRequest, User
-from schemas import CreateRideBody, GeoJSONPoint, RideDetoursOut, RideOut, UpdateRideBody
+from schemas import (
+    CreateRideBody,
+    GeoJSONPoint,
+    RatingStats,
+    RideDetoursOut,
+    RideOut,
+    UpdateRideBody,
+)
 from util.auth import CurrentUser, get_current_user
 from util.constants import U_OF_M_COORD
+from util.ratings import stats_subquery, to_stats, user_stats
 from util.ride_utils import get_distance
 from util.seats import count_accepted
 
@@ -21,8 +29,11 @@ def check_owner(ride: Ride, user: User) -> None:
         raise HTTPException(status_code=403, detail="You can only change your own rides")
 
 
-# a ride for the API, with who drives it and how many seats accepted riders haven't taken yet
-def to_ride_out(ride: Ride, accepted: int, driver_username: str) -> RideOut:
+# a ride for the API, with who drives it, how riders rate them,
+# and how many seats accepted riders haven't taken yet
+def to_ride_out(
+    ride: Ride, accepted: int, driver_username: str, driver_rating: RatingStats
+) -> RideOut:
     return RideOut(
         id=ride.id,
         driver_id=ride.driver_id,
@@ -32,25 +43,38 @@ def to_ride_out(ride: Ride, accepted: int, driver_username: str) -> RideOut:
         seats=ride.seats,
         price_cents=ride.price_cents,
         seats_left=max(ride.seats - accepted, 0),
+        driver_rating=driver_rating.average,
+        driver_rating_count=driver_rating.count,
     )
 
 
 # return a list of all rides for populating the frontend
 @router.get("", response_model=list[RideOut])
 async def list_rides(db: Annotated[AsyncSession, Depends(get_db)]) -> list[RideOut]:
-    # accepted riders per ride and each driver's name, in the same query instead of once per ride
+    # seats taken, driver name and driver rating for every ride in one query, not once per ride
     accepted = (
         select(RideRegistration.ride_id, func.count().label("accepted"))
         .group_by(RideRegistration.ride_id)
         .subquery()
     )
+    ratings = stats_subquery("driver")
     result = await db.execute(
-        select(Ride, func.coalesce(accepted.c.accepted, 0), User.username)
+        select(
+            Ride,
+            func.coalesce(accepted.c.accepted, 0),
+            User.username,
+            ratings.c.average,
+            func.coalesce(ratings.c.count, 0),
+        )
         .join(User, User.id == Ride.driver_id)
         .outerjoin(accepted, accepted.c.ride_id == Ride.id)
+        .outerjoin(ratings, ratings.c.ratee_id == Ride.driver_id)
         .order_by(Ride.departure_time)
     )
-    return [to_ride_out(ride, count, driver) for ride, count, driver in result.all()]
+    return [
+        to_ride_out(ride, count, driver, to_stats(average, rated))
+        for ride, count, driver, average, rated in result.all()
+    ]
 
 
 # get one ride, e.g. for the ride details page
@@ -60,7 +84,12 @@ async def get_ride(ride_id: str, db: Annotated[AsyncSession, Depends(get_db)]) -
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
     driver = await db.get(User, ride.driver_id)
-    return to_ride_out(ride, await count_accepted(ride_id, db), driver.username)
+    return to_ride_out(
+        ride,
+        await count_accepted(ride_id, db),
+        driver.username,
+        await user_stats(driver.id, "driver", db),
+    )
 
 
 # driver can post a ride
@@ -82,7 +111,7 @@ async def create_ride(
     await db.commit()
     await db.refresh(ride)
     # a new ride has no accepted riders yet, and the logged-in user is its driver
-    return to_ride_out(ride, 0, user.username)
+    return to_ride_out(ride, 0, user.username, await user_stats(user.id, "driver", db))
 
 
 # driver can edit a ride (partial update)
@@ -113,7 +142,12 @@ async def edit_ride(
     await db.commit()
     await db.refresh(ride)
     # check_owner above means the logged-in user is the driver
-    return to_ride_out(ride, await count_accepted(ride_id, db), user.username)
+    return to_ride_out(
+        ride,
+        await count_accepted(ride_id, db),
+        user.username,
+        await user_stats(user.id, "driver", db),
+    )
 
 
 # driver can delete a ride
