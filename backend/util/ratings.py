@@ -42,9 +42,15 @@ async def user_stats(user_id: str, role: RatingRole, db: AsyncSession) -> Rating
     return to_stats(average, count)
 
 
-def has_left(ride: Ride) -> bool:
-    """Whether the ride's departure time has passed, so the people on it can rate each other."""
-    return ride.departure_time <= datetime.now(UTC)
+async def find_rating(
+    ride_id: str, rater_id: str, ratee_id: str, db: AsyncSession
+) -> Rating | None:
+    """The rating this rater gave this person on this ride, if they've given one."""
+    return await db.scalar(
+        select(Rating).where(
+            Rating.ride_id == ride_id, Rating.rater_id == rater_id, Rating.ratee_id == ratee_id
+        )
+    )
 
 
 async def rateable_people(
@@ -52,8 +58,8 @@ async def rateable_people(
 ) -> dict[str, RatingRole] | None:
     """Who this user may rate on this ride, mapped to that person's role on it.
 
-    The driver rates each accepted rider and an accepted rider rates the driver.
-    Returns None if the user wasn't on the ride.
+    The driver rates each accepted rider and an accepted rider rates the driver, at any time
+    once accepted. Returns None if the user isn't on the ride (never was, or has cancelled).
     """
     riders = set(
         await db.scalars(
@@ -90,7 +96,11 @@ def _shared_rides(user_id: str, role: RatingRole) -> Select:
 
 
 async def pending_ratings(user_id: str, db: AsyncSession) -> list[PendingRatingOut]:
-    """Everyone this user shared a ride with that has left and hasn't rated yet, newest first."""
+    """Reminders: everyone on this user's rides that have left that they haven't rated yet.
+
+    Rating is open from acceptance, but only rides that have left are listed, so nobody is
+    reminded about a trip that hasn't happened. Newest ride first.
+    """
     rated = await db.execute(
         select(Rating.ride_id, Rating.ratee_id).where(Rating.rater_id == user_id)
     )

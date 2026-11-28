@@ -154,10 +154,12 @@ class UpdatesOut(BaseModel):
     request_updates: list[RideRequestDetailsOut]
 
 
-class CreateRatingBody(BaseModel):
-    """Request body for rating someone on a ride. The rater is whoever is logged in."""
+class SaveRatingBody(BaseModel):
+    """Request body for rating someone on a ride, or changing that rating.
 
-    ratee_id: str
+    The rater is whoever is logged in, and the person rated is in the URL.
+    """
+
     stars: int = Field(ge=MIN_STARS, le=MAX_STARS)
     comment: str | None = Field(default=None, max_length=RATING_COMMENT_LENGTH)
 
@@ -183,6 +185,8 @@ class RatingOut(BaseModel):
     stars: int
     comment: str | None
     created_at: datetime
+    # when the stars or comment last changed
+    updated_at: datetime
 
 
 class PendingRatingOut(BaseModel):
@@ -203,7 +207,8 @@ class RatingComment(BaseModel):
     comment: str
     # the rated user's role on that ride
     role: RatingRole
-    created_at: datetime
+    # when the rating was last changed
+    updated_at: datetime
 
 
 class UserRatingOut(BaseModel):
@@ -212,7 +217,7 @@ class UserRatingOut(BaseModel):
     user_id: str
     as_driver: RatingStats
     as_rider: RatingStats
-    # newest first
+    # most recently changed first
     recent_comments: list[RatingComment]
 
 

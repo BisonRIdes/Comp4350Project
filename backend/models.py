@@ -93,14 +93,15 @@ class Payment(Base):
 
 
 class Rating(Base):
-    """Stars one person on a ride gives another once it has left.
+    """Stars one person on a ride gives another, from the moment the rider is accepted.
 
-    Riders rate the driver and the driver rates each accepted rider.
+    Riders rate the driver and the driver rates each accepted rider. A rating can be changed
+    later, e.g. after the trip itself, so it stays one row per person per ride.
     """
 
     __tablename__ = "ratings"
     __table_args__ = (
-        # one rating per person per ride, which also stops a double submit
+        # one rating per person per ride; changing it updates this row
         UniqueConstraint("ride_id", "rater_id", "ratee_id"),
         CheckConstraint(f"stars BETWEEN {MIN_STARS} AND {MAX_STARS}", name="ck_ratings_stars"),
     )
@@ -115,6 +116,12 @@ class Rating(Base):
     comment: Mapped[str | None] = mapped_column(String(RATING_COMMENT_LENGTH), default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    # ratings can be changed at any time, so this is when the stars or comment last changed
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 

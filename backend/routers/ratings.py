@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,68 +9,93 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models import Rating, Ride, User
 from schemas import (
-    CreateRatingBody,
     PendingRatingOut,
     RatingComment,
     RatingOut,
+    SaveRatingBody,
     UserRatingOut,
 )
 from util.auth import CurrentUser, get_current_user
 from util.constants import RECENT_RATING_COMMENTS
-from util.ratings import has_left, pending_ratings, rateable_people, user_stats
+from util.ratings import find_rating, pending_ratings, rateable_people, user_stats
 
 # every ratings route needs a logged-in student
 router = APIRouter(tags=["ratings"], dependencies=[Depends(get_current_user)])
 
 
-# the logged-in user rates the driver or a rider they shared a ride with
-@router.post("/rides/{ride_id}/ratings", status_code=201, response_model=RatingOut)
-async def create_rating(
-    ride_id: str,
-    body: CreateRatingBody,
-    user: CurrentUser,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> Rating:
+async def get_ride_or_404(ride_id: str, db: AsyncSession) -> Ride:
     ride = await db.get(Ride, ride_id)
     if ride is None:
         raise HTTPException(status_code=404, detail="Ride not found")
+    return ride
 
-    if body.ratee_id == user.id:
+
+# the logged-in user rates the driver or a rider on their ride, or changes that rating;
+# open from the moment the driver accepts the rider, so it covers before, during and after
+@router.put(
+    "/rides/{ride_id}/ratings/{ratee_id}",
+    response_model=RatingOut,
+    responses={201: {"description": "Rating created"}},
+)
+async def save_rating(
+    ride_id: str,
+    ratee_id: str,
+    body: SaveRatingBody,
+    user: CurrentUser,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Rating:
+    ride = await get_ride_or_404(ride_id, db)
+
+    if ratee_id == user.id:
         raise HTTPException(status_code=400, detail="You can't rate yourself")
 
     rateable = await rateable_people(ride, user.id, db)
     if rateable is None:
-        raise HTTPException(status_code=403, detail="You weren't on this ride")
-    if body.ratee_id not in rateable:
+        raise HTTPException(status_code=403, detail="You aren't on this ride")
+    if ratee_id not in rateable:
         raise HTTPException(
             status_code=403, detail="Riders rate the driver, and the driver rates their riders"
         )
 
-    if not has_left(ride):
-        raise HTTPException(status_code=400, detail="You can rate this ride once it has left")
+    rating = await find_rating(ride_id, user.id, ratee_id, db)
+    if rating is None:
+        rating = Rating(
+            ride_id=ride_id,
+            rater_id=user.id,
+            ratee_id=ratee_id,
+            ratee_role=rateable[ratee_id],
+        )
+        db.add(rating)
+        response.status_code = 201
+    rating.stars = body.stars
+    rating.comment = body.comment
 
-    rating = Rating(
-        ride_id=ride_id,
-        rater_id=user.id,
-        ratee_id=body.ratee_id,
-        ratee_role=rateable[body.ratee_id],
-        stars=body.stars,
-        comment=body.comment,
-    )
-    db.add(rating)
     try:
         await db.commit()
     except IntegrityError:
-        # one rating per person per ride, also when two submits race each other
+        # another tab created this rating between our check and our save
         await db.rollback()
         raise HTTPException(
-            status_code=409, detail="You already rated this person for this ride"
+            status_code=409, detail="This rating was just saved somewhere else. Try again."
         ) from None
     await db.refresh(rating)
     return rating
 
 
-# everyone the logged-in user still has to rate, newest ride first
+# the ratings the logged-in user has given on this ride, to fill in the form when editing
+@router.get("/rides/{ride_id}/ratings/mine", response_model=list[RatingOut])
+async def list_my_ratings_for_ride(
+    ride_id: str, user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> Sequence[Rating]:
+    await get_ride_or_404(ride_id, db)
+    result = await db.scalars(
+        select(Rating).where(Rating.ride_id == ride_id, Rating.rater_id == user.id)
+    )
+    return result.all()
+
+
+# reminders: everyone on rides that have left that the logged-in user hasn't rated yet
 @router.get("/ratings/pending", response_model=list[PendingRatingOut])
 async def list_pending_ratings(
     user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]
@@ -88,7 +114,7 @@ async def get_user_rating(
     with_comments = await db.scalars(
         select(Rating)
         .where(Rating.ratee_id == user_id, Rating.comment.is_not(None))
-        .order_by(Rating.created_at.desc())
+        .order_by(Rating.updated_at.desc())
         .limit(RECENT_RATING_COMMENTS)
     )
     return UserRatingOut(
@@ -101,7 +127,7 @@ async def get_user_rating(
                 stars=rating.stars,
                 comment=rating.comment,
                 role=rating.ratee_role,
-                created_at=rating.created_at,
+                updated_at=rating.updated_at,
             )
             for rating in with_comments
         ],
